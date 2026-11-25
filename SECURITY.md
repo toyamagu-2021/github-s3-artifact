@@ -3,7 +3,8 @@
 ## Supported versions
 
 Security fixes are applied to the default branch and to the current major
-release line (currently `v0.x`). Release tags matching `v*` are immutable.
+release line (currently `v0.x`). Release tags matching `v*.*.*` are immutable.
+The floating major tag (`v0`) is moved by the release workflow.
 
 ## Reporting a vulnerability
 
