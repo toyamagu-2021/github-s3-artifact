@@ -26,8 +26,8 @@ jobs:
           config: .github/tagpr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update floating major tag (v1)
-        if: steps.tagpr.outputs.tag != '' && startsWith(steps.tagpr.outputs.tag, 'v1.')
+      - name: Update floating major tag (v0 / v1+)
+        if: steps.tagpr.outputs.tag != '' && startsWith(steps.tagpr.outputs.tag, 'v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.tagpr.outputs.tag }}
