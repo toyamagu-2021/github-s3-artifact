@@ -1,0 +1,64 @@
+name: 'Upload a Build Artifact to S3'
+description: 'Drop-in replacement for actions/upload-artifact@v7 storing artifacts on AWS S3 or S3-compatible object storage'
+inputs:
+  name:
+    description: 'Artifact name. If `archive` is `false`, the uploaded file basename is used as the artifact name.'
+    default: 'artifact'
+  path:
+    description: 'A file, directory or wildcard pattern that describes what to upload.'
+    required: true
+  if-no-files-found:
+    description: >
+      Desired behavior if no files are found using the provided path (warn, error, ignore).
+    default: 'warn'
+  retention-days:
+    description: >
+      Duration after which the artifact expires in days (0 uses default retention). Recorded as manifest expiresAt and S3 object tag s3-artifact-retention-days.
+  compression-level:
+    description: 'Zlib compression level from 0 (no compression) to 9 (best compression).'
+    default: '6'
+  overwrite:
+    description: 'If true, an existing artifact with the same name will be replaced.'
+    default: 'false'
+  include-hidden-files:
+    description: 'If true, hidden files and directories will be included in the artifact.'
+    default: 'false'
+  archive:
+    description: 'If true, archive into a zip before uploading; if false, upload a single file as-is.'
+    default: 'true'
+  bucket:
+    description: 'Target S3 bucket name (fallback: S3_ARTIFACT_BUCKET env).'
+    required: false
+  key-prefix:
+    description: 'Optional S3 key prefix (fallback: S3_ARTIFACT_KEY_PREFIX env).'
+    required: false
+  region:
+    description: 'AWS/S3 region (fallbacks: S3_ARTIFACT_REGION, AWS_REGION, AWS_DEFAULT_REGION; defaults to auto with endpoint or us-east-1).'
+    required: false
+  endpoint:
+    description: 'Custom S3-compatible endpoint URL (fallbacks: S3_ARTIFACT_ENDPOINT, AWS_ENDPOINT_URL_S3, AWS_ENDPOINT_URL).'
+    required: false
+  force-path-style:
+    description: 'Use path-style S3 addressing (fallback: S3_ARTIFACT_FORCE_PATH_STYLE env).'
+    required: false
+  access-key-id:
+    description: 'Optional AWS access key ID override (prefer OIDC / standard AWS_* env credentials).'
+    required: false
+  secret-access-key:
+    description: 'Optional AWS secret access key override (masked automatically).'
+    required: false
+  session-token:
+    description: 'Optional AWS session token override (masked automatically).'
+    required: false
+
+outputs:
+  artifact-id:
+    description: 'Unique 53-bit integer identifier for the uploaded artifact.'
+  artifact-url:
+    description: 'S3 URI (s3://<bucket>/<blobKey>) for the uploaded artifact blob.'
+  artifact-digest:
+    description: 'Hex-encoded SHA-256 digest (without sha256: prefix) for the uploaded artifact.'
+
+runs:
+  using: 'node24'
+  main: '../dist/upload/index.js'
