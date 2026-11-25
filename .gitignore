@@ -4,3 +4,4 @@ coverage/
 todo.md
 .DS_Store
 *.log
+.cursor/skills/verify-github-s3-artifact/evidence/runs/
