@@ -1,0 +1,7 @@
+[tagpr]
+vPrefix = true
+releaseBranch = main
+versionFile = package.json
+release = true
+minorLabels = "minor,enhancement,feat"
+command = "npm ci && npm run build"

@@ -1,0 +1,70 @@
+name: 'Download a Build Artifact from S3'
+description: 'Drop-in replacement for actions/download-artifact@v8 retrieving artifacts from AWS S3 or S3-compatible object storage'
+inputs:
+  name:
+    description: 'Name of the artifact to download. If unspecified, all artifacts matching pattern or run are downloaded.'
+    required: false
+  artifact-ids:
+    description: 'Comma-separated artifact IDs to download. Mutually exclusive with `name`.'
+    required: false
+  path:
+    description: 'Destination directory path (supports ~ expansion; defaults to $GITHUB_WORKSPACE).'
+    required: false
+  pattern:
+    description: 'Glob pattern matching artifact names to download (ignored when `name` is specified).'
+    required: false
+  merge-multiple:
+    description: 'When multiple artifacts are matched, extract into `path` directly if true, or `<path>/<name>` subdirectories if false.'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'Accepted for drop-in workflow compatibility with actions/download-artifact (unused by S3 backend).'
+    required: false
+  repository:
+    description: 'Repository owner/name scope for artifacts to download.'
+    required: false
+    default: ${{ github.repository }}
+  run-id:
+    description: 'Workflow run ID scope for artifacts to download.'
+    required: false
+    default: ${{ github.run_id }}
+  skip-decompress:
+    description: 'If true, write the archive or raw file directly without extracting zip contents.'
+    required: false
+    default: 'false'
+  digest-mismatch:
+    description: 'Behavior when SHA-256 verification fails: ignore, info, warn, or error (default).'
+    required: false
+    default: 'error'
+  bucket:
+    description: 'Target S3 bucket name (fallback: S3_ARTIFACT_BUCKET env).'
+    required: false
+  key-prefix:
+    description: 'Optional S3 key prefix (fallback: S3_ARTIFACT_KEY_PREFIX env).'
+    required: false
+  region:
+    description: 'AWS/S3 region (fallbacks: S3_ARTIFACT_REGION, AWS_REGION, AWS_DEFAULT_REGION; defaults to auto with endpoint or us-east-1).'
+    required: false
+  endpoint:
+    description: 'Custom S3-compatible endpoint URL (fallbacks: S3_ARTIFACT_ENDPOINT, AWS_ENDPOINT_URL_S3, AWS_ENDPOINT_URL).'
+    required: false
+  force-path-style:
+    description: 'Use path-style S3 addressing (fallback: S3_ARTIFACT_FORCE_PATH_STYLE env).'
+    required: false
+  access-key-id:
+    description: 'Optional AWS access key ID override (prefer OIDC / standard AWS_* env credentials).'
+    required: false
+  secret-access-key:
+    description: 'Optional AWS secret access key override (masked automatically).'
+    required: false
+  session-token:
+    description: 'Optional AWS session token override (masked automatically).'
+    required: false
+
+outputs:
+  download-path:
+    description: 'Resolved destination path where artifacts were downloaded.'
+
+runs:
+  using: 'node24'
+  main: '../dist/download/index.js'

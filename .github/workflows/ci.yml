@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+      - name: Verify bundled dist is up to date
+        run: |
+          npm run build
+          git diff --exit-code dist/
+
+  minio-docker-integration:
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:integration
+
+  actions-e2e:
+    runs-on: ubuntu-latest
+    needs: verify
+    env:
+      S3_ARTIFACT_BUCKET: actions-e2e
+      S3_ARTIFACT_KEY_PREFIX: ci-e2e
+      S3_ARTIFACT_ENDPOINT: http://127.0.0.1:9000
+      S3_ARTIFACT_REGION: us-east-1
+      S3_ARTIFACT_FORCE_PATH_STYLE: 'true'
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start MinIO service container
+        run: |
+          docker run -d --name ci-minio \
+            -p 127.0.0.1:9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            cgr.dev/chainguard/minio:latest server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9000/minio/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become healthy" >&2
+          exit 1
+      - name: Create S3 test bucket without workspace node_modules
+        run: |
+          mkdir -p /tmp/s3-setup
+          npm --prefix /tmp/s3-setup install --no-save @aws-sdk/client-s3
+          NODE_PATH=/tmp/s3-setup/node_modules node -e '
+            const {S3Client, CreateBucketCommand} = require("@aws-sdk/client-s3");
+            (async () => {
+              const s3 = new S3Client({
+                region: "us-east-1",
+                endpoint: "http://127.0.0.1:9000",
+                forcePathStyle: true,
+                requestChecksumCalculation: "WHEN_REQUIRED",
+                responseChecksumValidation: "WHEN_REQUIRED"
+              });
+              try {
+                await s3.send(new CreateBucketCommand({Bucket: process.env.S3_ARTIFACT_BUCKET}));
+              } catch (err) {
+                if (err.name !== "BucketAlreadyOwnedByYou") throw err;
+              }
+            })();
+          '
+          rm -rf /tmp/s3-setup
+          test ! -d node_modules
+      - name: Prepare fixture files
+        run: |
+          mkdir -p fixtures/pkg-a/dist fixtures/pkg-b/dist single-dir
+          echo "alpha" > fixtures/pkg-a/dist/a.txt
+          echo "skip" > fixtures/pkg-a/dist/a.map
+          echo "beta" > fixtures/pkg-b/dist/b.txt
+          echo "raw-payload" > single-dir/app.tar.gz
+          echo "hidden-val" > fixtures/.env
+      - id: up_multi
+        uses: ./upload
+        with:
+          name: multi-pkg
+          path: |
+            fixtures/pkg-a/dist/**
+            fixtures/pkg-b/dist/**
+            !**/a.map
+          retention-days: '7'
+      - id: up_raw
+        uses: ./upload
+        with:
+          name: ignored-name
+          path: single-dir/app.tar.gz
+          archive: false
+      - id: up_hidden
+        uses: ./upload
+        with:
+          name: with-hidden
+          path: fixtures/.env
+          include-hidden-files: true
+      - name: Verify upload outputs
+        run: |
+          test -n "${{ steps.up_multi.outputs.artifact-id }}"
+          echo "${{ steps.up_multi.outputs.artifact-digest }}" | grep -Eq '^[0-9a-f]{64}$'
+          echo "${{ steps.up_multi.outputs.artifact-url }}" | grep -Eq '^s3://actions-e2e/ci-e2e/'
+      - id: dl_single
+        uses: ./download
+        with:
+          name: multi-pkg
+          path: out/single
+      - id: dl_all
+        uses: ./download
+        with:
+          path: out/all
+      - id: dl_by_id
+        uses: ./download
+        with:
+          artifact-ids: ${{ steps.up_raw.outputs.artifact-id }}
+          path: out/by-id
+      - id: dl_skip
+        uses: ./download
+        with:
+          name: multi-pkg
+          path: out/raw-zip
+          skip-decompress: true
+      - name: Verify downloaded workspace files
+        run: |
+          test "$(cat out/single/pkg-a/dist/a.txt)" = "alpha"
+          test ! -e out/single/pkg-a/dist/a.map
+          test "$(cat out/single/pkg-b/dist/b.txt)" = "beta"
+          test "$(cat out/all/multi-pkg/pkg-a/dist/a.txt)" = "alpha"
+          test "$(cat out/all/app.tar.gz/app.tar.gz)" = "raw-payload"
+          test "$(cat out/all/with-hidden/.env)" = "hidden-val"
+          test "$(cat out/by-id/app.tar.gz)" = "raw-payload"
+          test -f out/raw-zip/multi-pkg.zip
+      - name: Stop MinIO container
+        if: always()
+        run: docker rm -f ci-minio || true
