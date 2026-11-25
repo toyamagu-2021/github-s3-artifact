@@ -1,0 +1,6 @@
+[tagpr]
+vPrefix = true
+releaseBranch = main
+versionFile = package.json
+release = true
+command = "npm ci && npm run build"
