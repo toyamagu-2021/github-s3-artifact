@@ -33,7 +33,7 @@ jobs:
       - run: npm ci && npm run build
 
       - id: up
-        uses: toyamagu-2021/upload-artifact-s3/upload@v0
+        uses: toyamagu-2021/github-s3-artifact/upload@v0
         with:
           name: build-dist
           path: |
@@ -50,7 +50,7 @@ jobs:
           role-to-assume: arn:aws:iam::123456789012:role/github-actions-artifacts
           aws-region: us-east-1
 
-      - uses: toyamagu-2021/upload-artifact-s3/download@v0
+      - uses: toyamagu-2021/github-s3-artifact/download@v0
         with:
           name: build-dist
           path: ./dist
