@@ -40,13 +40,17 @@ function getBooleanWithDefault(name: string, defaultValue: boolean): boolean {
   return core.getBooleanInput(name, {required: false})
 }
 
-function expandDestinationPath(rawPath: string | undefined, env: NodeJS.ProcessEnv): string {
+export function expandDestinationPath(
+  rawPath: string | undefined,
+  env: NodeJS.ProcessEnv,
+  pathApi: path.PlatformPath = path
+): string {
   const target = rawPath || env.GITHUB_WORKSPACE || process.cwd()
-  if (target === '~' || target.startsWith('~/')) {
+  if (target.startsWith('~')) {
     const home = env.HOME || os.homedir()
-    return path.resolve(target === '~' ? home : path.join(home, target.slice(2)))
+    return pathApi.resolve(target.replace('~', home))
   }
-  return path.resolve(target)
+  return pathApi.resolve(target)
 }
 
 export function parseDownloadInputs(

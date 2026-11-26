@@ -17,13 +17,16 @@ export interface ZipFileEntrySpec {
   readonly isSymbolicLink: boolean
 }
 
-function getMultiPathLCA(searchPaths: readonly string[]): string {
-  const splitPaths = searchPaths.map(p => path.normalize(p).split(path.sep))
+export function getMultiPathLCA(
+  searchPaths: readonly string[],
+  pathApi: path.PlatformPath = path
+): string {
+  const splitPaths = searchPaths.map(p => pathApi.normalize(p).split(pathApi.sep))
   const smallestLength = Math.min(...splitPaths.map(parts => parts.length))
   const commonParts: string[] = []
 
-  if (searchPaths[0]?.startsWith(path.sep)) {
-    commonParts.push(path.sep)
+  if (searchPaths[0]?.startsWith(pathApi.sep)) {
+    commonParts.push(pathApi.sep)
   }
 
   for (let i = 0; i < smallestLength; i++) {
@@ -37,7 +40,22 @@ function getMultiPathLCA(searchPaths: readonly string[]): string {
     commonParts.push(first)
   }
 
-  return path.join(...commonParts)
+  return joinPreservingDriveRoot(commonParts, pathApi)
+}
+
+function joinPreservingDriveRoot(
+  commonParts: readonly string[],
+  pathApi: path.PlatformPath
+): string {
+  const first = commonParts[0]
+  if (first !== undefined && /^[A-Za-z]:$/.test(first)) {
+    const rooted = `${first}${pathApi.sep}`
+    if (commonParts.length === 1) {
+      return pathApi.normalize(rooted)
+    }
+    return pathApi.join(rooted, ...commonParts.slice(1))
+  }
+  return pathApi.join(...commonParts)
 }
 
 export async function findFilesToUpload(

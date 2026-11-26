@@ -46853,7 +46853,7 @@ var require_dist_cjs11 = __commonJS({
     var { createHash: createHash8, createPrivateKey, createPublicKey, sign: sign4 } = require("node:crypto");
     var { promises: promises4 } = require("node:fs");
     var { homedir: homedir3 } = require("node:os");
-    var { dirname: dirname5, join: join7 } = require("node:path");
+    var { dirname: dirname5, join: join6 } = require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -47019,10 +47019,10 @@ var require_dist_cjs11 = __commonJS({
         await promises4.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join7(homedir3(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join6(homedir3(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash8("sha256").update(loginSessionBytes).digest("hex");
-        return join7(directory, `${loginSessionSha256}.json`);
+        return join6(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -59146,7 +59146,7 @@ var require_BufferList = __commonJS({
         this.head = this.tail = null;
         this.length = 0;
       };
-      BufferList.prototype.join = function join7(s2) {
+      BufferList.prototype.join = function join6(s2) {
         if (this.length === 0) return "";
         var p3 = this.head;
         var ret = "" + p3.data;
@@ -79027,12 +79027,12 @@ function create(patterns, options) {
 // src/core/search.ts
 var fs6 = __toESM(require("node:fs/promises"), 1);
 var path7 = __toESM(require("node:path"), 1);
-function getMultiPathLCA(searchPaths) {
-  const splitPaths = searchPaths.map((p3) => path7.normalize(p3).split(path7.sep));
+function getMultiPathLCA(searchPaths, pathApi = path7) {
+  const splitPaths = searchPaths.map((p3) => pathApi.normalize(p3).split(pathApi.sep));
   const smallestLength = Math.min(...splitPaths.map((parts) => parts.length));
   const commonParts = [];
-  if (searchPaths[0]?.startsWith(path7.sep)) {
-    commonParts.push(path7.sep);
+  if (searchPaths[0]?.startsWith(pathApi.sep)) {
+    commonParts.push(pathApi.sep);
   }
   for (let i5 = 0; i5 < smallestLength; i5++) {
     const first = splitPaths[0]?.[i5];
@@ -79044,7 +79044,18 @@ function getMultiPathLCA(searchPaths) {
     }
     commonParts.push(first);
   }
-  return path7.join(...commonParts);
+  return joinPreservingDriveRoot(commonParts, pathApi);
+}
+function joinPreservingDriveRoot(commonParts, pathApi) {
+  const first = commonParts[0];
+  if (first !== void 0 && /^[A-Za-z]:$/.test(first)) {
+    const rooted = `${first}${pathApi.sep}`;
+    if (commonParts.length === 1) {
+      return pathApi.normalize(rooted);
+    }
+    return pathApi.join(rooted, ...commonParts.slice(1));
+  }
+  return pathApi.join(...commonParts);
 }
 async function findFilesToUpload(searchPath, includeHiddenFiles = false) {
   const globber = await create(searchPath, {
