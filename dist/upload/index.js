@@ -46853,7 +46853,7 @@ var require_dist_cjs11 = __commonJS({
     var { createHash: createHash8, createPrivateKey, createPublicKey, sign: sign4 } = require("node:crypto");
     var { promises: promises4 } = require("node:fs");
     var { homedir: homedir3 } = require("node:os");
-    var { dirname: dirname5, join: join7 } = require("node:path");
+    var { dirname: dirname5, join: join6 } = require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -47019,10 +47019,10 @@ var require_dist_cjs11 = __commonJS({
         await promises4.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join7(homedir3(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join6(homedir3(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash8("sha256").update(loginSessionBytes).digest("hex");
-        return join7(directory, `${loginSessionSha256}.json`);
+        return join6(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -59146,7 +59146,7 @@ var require_BufferList = __commonJS({
         this.head = this.tail = null;
         this.length = 0;
       };
-      BufferList.prototype.join = function join7(s2) {
+      BufferList.prototype.join = function join6(s2) {
         if (this.length === 0) return "";
         var p3 = this.head;
         var ret = "" + p3.data;
@@ -72578,13 +72578,14 @@ function createHashStream() {
 var DOWNLOAD_CHUNK_TIMEOUT_MS = 30 * 1e3;
 function watchUploadStall(opts) {
   const now = opts.now ?? (() => Date.now());
+  const pollMs = Math.max(1, Math.min(opts.timeoutMs, 5e3));
   return new Promise((resolve3, reject) => {
     const timer = setInterval(() => {
-      if (now() - opts.lastProgressMs() > opts.timeoutMs) {
+      if (now() - opts.lastProgressMs() >= opts.timeoutMs) {
         clearInterval(timer);
         reject(new Error("Upload progress stalled."));
       }
-    }, opts.timeoutMs);
+    }, pollMs);
     const onAbort = () => {
       clearInterval(timer);
       resolve3();
@@ -72608,16 +72609,25 @@ function concurrencyCapForCpu(numCPUs) {
   }
   return concurrencyCap;
 }
+function parsePositiveIntEnv(raw, varName) {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(`Invalid value set for ${varName} env variable`);
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`Invalid value set for ${varName} env variable`);
+  }
+  return parsed;
+}
 function getConcurrency(env2 = process.env, numCPUs = os5.cpus().length) {
   const concurrencyCap = concurrencyCapForCpu(numCPUs);
-  const concurrencyOverride = env2.ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY;
+  const concurrencyOverride = env2.ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY?.trim();
   if (concurrencyOverride) {
-    const concurrency = parseInt(concurrencyOverride, 10);
-    if (Number.isNaN(concurrency) || concurrency < 1) {
-      throw new Error(
-        "Invalid value set for ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY env variable"
-      );
-    }
+    const concurrency = parsePositiveIntEnv(
+      concurrencyOverride,
+      "ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY"
+    );
     if (concurrency < concurrencyCap) {
       info(
         "Set concurrency based on the value set in ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY."
@@ -72632,27 +72642,18 @@ function getConcurrency(env2 = process.env, numCPUs = os5.cpus().length) {
   return 5;
 }
 function getUploadChunkTimeout(env2 = process.env) {
-  const timeoutVar = env2.ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS;
+  const timeoutVar = env2.ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS?.trim();
   if (!timeoutVar) {
     return 3e5;
   }
-  const timeout = parseInt(timeoutVar, 10);
-  if (Number.isNaN(timeout)) {
-    throw new Error(
-      "Invalid value set for ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS env variable"
-    );
-  }
-  return timeout;
+  return parsePositiveIntEnv(timeoutVar, "ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS");
 }
 function getMaxArtifactListCount(env2 = process.env) {
-  const maxCountVar = env2.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT || "1000";
-  const maxCount = parseInt(maxCountVar, 10);
-  if (Number.isNaN(maxCount) || maxCount < 1) {
-    throw new Error(
-      "Invalid value set for ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT env variable"
-    );
+  const maxCountVar = env2.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT?.trim();
+  if (!maxCountVar) {
+    return 1e3;
   }
-  return maxCount;
+  return parsePositiveIntEnv(maxCountVar, "ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT");
 }
 function artifactListLimitMessage(maxCount) {
   return `Artifact list exceeded the limit of ${maxCount}. Results will be incomplete as only the first ${maxCount} artifacts will be returned`;
@@ -72953,9 +72954,11 @@ var S3ArtifactStore = class {
     upload.on("httpUploadProgress", () => {
       lastProgressTime = Date.now();
     });
+    const transfer = Promise.all([upload.done(), streamPipe]);
+    transfer.catch(() => void 0);
     try {
       await Promise.race([
-        Promise.all([upload.done(), streamPipe]),
+        transfer,
         watchUploadStall({
           timeoutMs,
           signal: stallAbort.signal,
@@ -72965,6 +72968,14 @@ var S3ArtifactStore = class {
     } catch (error3) {
       uploadAbort.abort();
       stallAbort.abort();
+      const abortErr = error3 instanceof Error ? error3 : new Error(String(error3));
+      if (typeof body.destroy === "function") {
+        ;
+        body.destroy(abortErr);
+      }
+      if (!pass2.destroyed) {
+        pass2.destroy(abortErr);
+      }
       throw error3;
     } finally {
       stallAbort.abort();
@@ -79154,24 +79165,41 @@ function create(patterns, options) {
 // src/core/search.ts
 var fs6 = __toESM(require("node:fs/promises"), 1);
 var path7 = __toESM(require("node:path"), 1);
-function getMultiPathLCA(searchPaths) {
-  const splitPaths = searchPaths.map((p3) => path7.normalize(p3).split(path7.sep));
-  const smallestLength = Math.min(...splitPaths.map((parts) => parts.length));
+function getMultiPathLCA(searchPaths, pathApi = path7) {
+  if (searchPaths.length === 0) {
+    return pathApi.join();
+  }
+  const parsedPaths = searchPaths.map((p3) => {
+    const normalized = pathApi.normalize(p3);
+    const { root: root5 } = pathApi.parse(normalized);
+    const remainder = normalized.slice(root5.length);
+    const segments = remainder ? remainder.split(pathApi.sep).filter(Boolean) : [];
+    return { root: root5, segments };
+  });
+  const firstRoot = parsedPaths[0].root;
+  const isWin32 = pathApi.sep === "\\";
+  const sameRoot = parsedPaths.every(
+    (entry) => isWin32 ? entry.root.toLowerCase() === firstRoot.toLowerCase() : entry.root === firstRoot
+  );
+  if (!sameRoot) {
+    return pathApi.join();
+  }
+  const smallestLength = Math.min(...parsedPaths.map((p3) => p3.segments.length));
   const commonParts = [];
-  if (searchPaths[0]?.startsWith(path7.sep)) {
-    commonParts.push(path7.sep);
-  }
   for (let i5 = 0; i5 < smallestLength; i5++) {
-    const first = splitPaths[0]?.[i5];
-    if (first === void 0) {
+    const segment = parsedPaths[0].segments[i5];
+    if (segment === void 0) {
       break;
     }
-    if (!splitPaths.every((parts) => parts[i5] === first)) {
+    if (!parsedPaths.every((p3) => p3.segments[i5] === segment)) {
       break;
     }
-    commonParts.push(first);
+    commonParts.push(segment);
   }
-  return path7.join(...commonParts);
+  if (commonParts.length === 0) {
+    return firstRoot || pathApi.join();
+  }
+  return firstRoot ? pathApi.join(firstRoot, ...commonParts) : pathApi.join(...commonParts);
 }
 async function findFilesToUpload(searchPath, includeHiddenFiles = false) {
   const globber = await create(searchPath, {
