@@ -12,19 +12,29 @@ export function concurrencyCapForCpu(numCPUs: number): number {
   return concurrencyCap
 }
 
+function parsePositiveIntEnv(raw: string, varName: string): number {
+  const trimmed = raw.trim()
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(`Invalid value set for ${varName} env variable`)
+  }
+  const parsed = Number(trimmed)
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`Invalid value set for ${varName} env variable`)
+  }
+  return parsed
+}
+
 export function getConcurrency(
   env: NodeJS.ProcessEnv = process.env,
   numCPUs: number = os.cpus().length
 ): number {
   const concurrencyCap = concurrencyCapForCpu(numCPUs)
-  const concurrencyOverride = env.ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY
+  const concurrencyOverride = env.ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY?.trim()
   if (concurrencyOverride) {
-    const concurrency = parseInt(concurrencyOverride, 10)
-    if (Number.isNaN(concurrency) || concurrency < 1) {
-      throw new Error(
-        'Invalid value set for ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY env variable'
-      )
-    }
+    const concurrency = parsePositiveIntEnv(
+      concurrencyOverride,
+      'ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY'
+    )
     if (concurrency < concurrencyCap) {
       core.info(
         'Set concurrency based on the value set in ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY.'
@@ -40,28 +50,19 @@ export function getConcurrency(
 }
 
 export function getUploadChunkTimeout(env: NodeJS.ProcessEnv = process.env): number {
-  const timeoutVar = env.ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS
+  const timeoutVar = env.ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS?.trim()
   if (!timeoutVar) {
     return 300000
   }
-  const timeout = parseInt(timeoutVar, 10)
-  if (Number.isNaN(timeout)) {
-    throw new Error(
-      'Invalid value set for ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS env variable'
-    )
-  }
-  return timeout
+  return parsePositiveIntEnv(timeoutVar, 'ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS')
 }
 
 export function getMaxArtifactListCount(env: NodeJS.ProcessEnv = process.env): number {
-  const maxCountVar = env.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT || '1000'
-  const maxCount = parseInt(maxCountVar, 10)
-  if (Number.isNaN(maxCount) || maxCount < 1) {
-    throw new Error(
-      'Invalid value set for ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT env variable'
-    )
+  const maxCountVar = env.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT?.trim()
+  if (!maxCountVar) {
+    return 1000
   }
-  return maxCount
+  return parsePositiveIntEnv(maxCountVar, 'ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT')
 }
 
 export function artifactListLimitMessage(maxCount: number): string {

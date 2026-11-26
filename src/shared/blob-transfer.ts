@@ -77,13 +77,14 @@ export function watchUploadStall(opts: {
   readonly now?: () => number
 }): Promise<void> {
   const now = opts.now ?? (() => Date.now())
+  const pollMs = Math.max(1, Math.min(opts.timeoutMs, 5000))
   return new Promise((resolve, reject) => {
     const timer = setInterval(() => {
-      if (now() - opts.lastProgressMs() > opts.timeoutMs) {
+      if (now() - opts.lastProgressMs() >= opts.timeoutMs) {
         clearInterval(timer)
         reject(new Error('Upload progress stalled.'))
       }
-    }, opts.timeoutMs)
+    }, pollMs)
 
     const onAbort = (): void => {
       clearInterval(timer)
@@ -106,10 +107,10 @@ export async function withBlobReadRetry<T>(
   const backoffMs = options.backoffMs ?? DOWNLOAD_RETRY_BACKOFF_MS
   const chunkTimeoutMs = options.chunkTimeoutMs ?? DOWNLOAD_CHUNK_TIMEOUT_MS
   const sleep = options.sleep ?? defaultSleep
-  let retryCount = 0
+  let attempt = 0
   let lastError: unknown
 
-  while (retryCount < maxAttempts) {
+  while (attempt < maxAttempts) {
     try {
       const stream = withChunkInactivityTimeout(
         (await open()) as Readable,
@@ -121,15 +122,17 @@ export async function withBlobReadRetry<T>(
         throw error
       }
       lastError = error
-      retryCount += 1
-      core.debug(
-        `Failed to download artifact after ${retryCount} retries due to ${error instanceof Error ? error.message : String(error)}. Retrying in 5 seconds...`
-      )
-      await sleep(backoffMs)
+      attempt += 1
+      if (attempt < maxAttempts) {
+        core.debug(
+          `Failed to download artifact on attempt ${attempt}/${maxAttempts} due to ${error instanceof Error ? error.message : String(error)}. Retrying in ${backoffMs}ms...`
+        )
+        await sleep(backoffMs)
+      }
     }
   }
 
-  const message = `Artifact download failed after ${retryCount} retries.`
+  const message = `Artifact download failed after ${attempt} attempts.`
   if (lastError instanceof Error) {
     throw new Error(message, {cause: lastError})
   }

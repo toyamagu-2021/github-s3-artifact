@@ -265,9 +265,12 @@ export class S3ArtifactStore implements ArtifactStore {
       lastProgressTime = Date.now()
     })
 
+    const transfer = Promise.all([upload.done(), streamPipe])
+    transfer.catch(() => undefined)
+
     try {
       await Promise.race([
-        Promise.all([upload.done(), streamPipe]),
+        transfer,
         watchUploadStall({
           timeoutMs,
           signal: stallAbort.signal,
@@ -277,6 +280,13 @@ export class S3ArtifactStore implements ArtifactStore {
     } catch (error) {
       uploadAbort.abort()
       stallAbort.abort()
+      const abortErr = error instanceof Error ? error : new Error(String(error))
+      if (typeof (body as Readable).destroy === 'function') {
+        ;(body as Readable).destroy(abortErr)
+      }
+      if (!pass.destroyed) {
+        pass.destroy(abortErr)
+      }
       throw error
     } finally {
       stallAbort.abort()

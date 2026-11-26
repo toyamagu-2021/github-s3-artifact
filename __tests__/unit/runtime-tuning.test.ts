@@ -34,6 +34,9 @@ describe('artifact runtime tuning', () => {
     expect(() =>
       getConcurrency({ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY: '0'})
     ).toThrow('Invalid value set for ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY')
+    expect(() =>
+      getConcurrency({ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY: '3xyz'})
+    ).toThrow('Invalid value set for ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY')
   })
 
   it('reads the upload stall timeout and the list cap', () => {
@@ -44,6 +47,12 @@ describe('artifact runtime tuning', () => {
     expect(() =>
       getUploadChunkTimeout({ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS: 'nope'})
     ).toThrow('Invalid value set for ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS')
+    expect(() =>
+      getUploadChunkTimeout({ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS: '0'})
+    ).toThrow('Invalid value set for ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS')
+    expect(() =>
+      getUploadChunkTimeout({ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS: '-5'})
+    ).toThrow('Invalid value set for ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS')
     expect(getMaxArtifactListCount({})).toBe(1000)
     expect(getMaxArtifactListCount({ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '2'})).toBe(2)
     expect(() =>
@@ -51,12 +60,12 @@ describe('artifact runtime tuning', () => {
     ).toThrow('Invalid value set for ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT')
   })
 
-  it('rejects a stalled upload and ignores the watcher after abort', async () => {
+  it('rejects a stalled upload at the timeout boundary and ignores the watcher after abort', async () => {
     const stalled = watchUploadStall({
       timeoutMs: 20,
       signal: new AbortController().signal,
       lastProgressMs: () => 0,
-      now: () => 100
+      now: () => 20
     })
     await expect(stalled).rejects.toThrow('Upload progress stalled.')
 
@@ -73,7 +82,7 @@ describe('artifact runtime tuning', () => {
     await live
   })
 
-  it('retries a blob read with backoff and does not retry a missing artifact', async () => {
+  it('retries a blob read with backoff, skips sleep on final failure, and does not retry a missing artifact', async () => {
     let opens = 0
     const sleeps: number[] = []
     const body = await withBlobReadRetry(
@@ -103,6 +112,23 @@ describe('artifact runtime tuning', () => {
     expect(body).toBe('ok')
     expect(opens).toBe(3)
     expect(sleeps).toEqual([5000, 5000])
+
+    const failSleeps: number[] = []
+    await expect(
+      withBlobReadRetry(
+        () => Promise.reject(new Error('transient')),
+        () => Promise.resolve('x'),
+        {
+          maxAttempts: 3,
+          backoffMs: 5000,
+          sleep: ms => {
+            failSleeps.push(ms)
+            return Promise.resolve()
+          }
+        }
+      )
+    ).rejects.toThrow('Artifact download failed after 3 attempts.')
+    expect(failSleeps).toEqual([5000, 5000])
 
     const hung = new Readable({
       read() {
