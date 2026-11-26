@@ -12,7 +12,14 @@ import {PassThrough, Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import * as core from '@actions/core'
 import {createHashStream} from '../core/hash-stream.js'
+import {watchUploadStall} from '../shared/blob-transfer.js'
 import {ArtifactConflictError, ArtifactNotFoundError} from '../shared/errors.js'
+import {
+  artifactListLimitMessage,
+  getConcurrency,
+  getMaxArtifactListCount,
+  getUploadChunkTimeout
+} from '../shared/runtime-config.js'
 import {
   type ArtifactManifestV1,
   type ArtifactName,
@@ -35,7 +42,6 @@ import {
 } from './store.js'
 
 const PART_SIZE_BYTES = 8 * 1024 * 1024
-const MULTIPART_QUEUE_SIZE = 4
 const MANIFEST_READ_CONCURRENCY = 10
 
 export interface S3ArtifactStoreDeps {
@@ -230,9 +236,17 @@ export class S3ArtifactStore implements ArtifactStore {
     body: NodeJS.ReadableStream,
     contentType: string
   ): Promise<PutBlobResult> {
+    const queueSize = getConcurrency()
+    const timeoutMs = getUploadChunkTimeout()
+    core.debug(
+      `Uploading artifact with queueSize: ${queueSize}, partSize: ${PART_SIZE_BYTES}`
+    )
     const hashTransform = createHashStream()
     const pass = new PassThrough()
     const streamPipe = pipeline(body, hashTransform, pass)
+    const uploadAbort = new AbortController()
+    const stallAbort = new AbortController()
+    let lastProgressTime = Date.now()
 
     const upload = new Upload({
       client: this.client,
@@ -243,11 +257,40 @@ export class S3ArtifactStore implements ArtifactStore {
         ContentType: contentType
       },
       partSize: PART_SIZE_BYTES,
-      queueSize: MULTIPART_QUEUE_SIZE,
-      leavePartsOnError: false
+      queueSize,
+      leavePartsOnError: false,
+      abortController: uploadAbort
+    })
+    upload.on('httpUploadProgress', () => {
+      lastProgressTime = Date.now()
     })
 
-    await Promise.all([upload.done(), streamPipe])
+    const transfer = Promise.all([upload.done(), streamPipe])
+    transfer.catch(() => undefined)
+
+    try {
+      await Promise.race([
+        transfer,
+        watchUploadStall({
+          timeoutMs,
+          signal: stallAbort.signal,
+          lastProgressMs: () => lastProgressTime
+        })
+      ])
+    } catch (error) {
+      uploadAbort.abort()
+      stallAbort.abort()
+      const abortErr = error instanceof Error ? error : new Error(String(error))
+      if (typeof (body as Readable).destroy === 'function') {
+        ;(body as Readable).destroy(abortErr)
+      }
+      if (!pass.destroyed) {
+        pass.destroy(abortErr)
+      }
+      throw error
+    } finally {
+      stallAbort.abort()
+    }
     const metrics = hashTransform.result()
     return {
       blobKey,
@@ -326,8 +369,10 @@ export class S3ArtifactStore implements ArtifactStore {
 
   async listManifests(scope: RunScope): Promise<ArtifactManifestV1[]> {
     const prefix = buildManifestPrefix(this.config.keyPrefix, scope)
+    const maxCount = getMaxArtifactListCount()
     const keys: string[] = []
     let continuationToken: string | undefined
+    let hitLimit = false
 
     do {
       const response = await this.client.send(
@@ -338,14 +383,30 @@ export class S3ArtifactStore implements ArtifactStore {
         })
       )
       for (const item of response.Contents ?? []) {
-        if (item.Key && item.Key.endsWith('.json')) {
-          keys.push(item.Key)
+        if (!item.Key || !item.Key.endsWith('.json')) {
+          continue
         }
+        if (keys.length >= maxCount) {
+          hitLimit = true
+          break
+        }
+        keys.push(item.Key)
+      }
+      if (hitLimit) {
+        break
       }
       continuationToken = response.IsTruncated
         ? response.NextContinuationToken
         : undefined
+      if (keys.length >= maxCount && continuationToken) {
+        hitLimit = true
+        break
+      }
     } while (continuationToken)
+
+    if (hitLimit) {
+      this.warn(artifactListLimitMessage(maxCount))
+    }
 
     const nowMs = this.now()
     const manifests: ArtifactManifestV1[] = []

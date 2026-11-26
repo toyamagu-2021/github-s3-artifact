@@ -4083,7 +4083,7 @@ var require_webidl = __commonJS({
 var require_util2 = __commonJS({
   "node_modules/undici/lib/web/fetch/util.js"(exports2, module2) {
     "use strict";
-    var { Transform: Transform2 } = require("node:stream");
+    var { Transform: Transform3 } = require("node:stream");
     var zlib2 = require("node:zlib");
     var { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = require_constants3();
     var { getGlobalOrigin } = require_global();
@@ -4771,7 +4771,7 @@ var require_util2 = __commonJS({
       contentRange += isomorphicEncode(`${fullLength}`);
       return contentRange;
     }
-    var InflateStream = class extends Transform2 {
+    var InflateStream = class extends Transform3 {
       #zlibOptions;
       /** @param {zlib.ZlibOptions} [zlibOptions] */
       constructor(zlibOptions) {
@@ -11257,13 +11257,13 @@ var require_pluralizer = __commonJS({
 var require_pending_interceptors_formatter = __commonJS({
   "node_modules/undici/lib/mock/pending-interceptors-formatter.js"(exports2, module2) {
     "use strict";
-    var { Transform: Transform2 } = require("node:stream");
+    var { Transform: Transform3 } = require("node:stream");
     var { Console } = require("node:console");
     var PERSISTENT = process.versions.icu ? "\u2705" : "Y ";
     var NOT_PERSISTENT = process.versions.icu ? "\u274C" : "N ";
     module2.exports = class PendingInterceptorsFormatter {
       constructor({ disableColors } = {}) {
-        this.transform = new Transform2({
+        this.transform = new Transform3({
           transform(chunk, _enc, cb) {
             cb(null, chunk);
           }
@@ -18314,7 +18314,7 @@ var require_eventsource_stream = __commonJS({
   "node_modules/undici/lib/web/eventsource/eventsource-stream.js"(exports2, module2) {
     "use strict";
     var buffer = require("node:buffer");
-    var { Transform: Transform2 } = require("node:stream");
+    var { Transform: Transform3 } = require("node:stream");
     var { isASCIINumber, isValidLastEventId } = require_util8();
     var BOM = [239, 187, 191];
     var LF = 10;
@@ -18364,7 +18364,7 @@ var require_eventsource_stream = __commonJS({
       error3.aborted = false;
       return error3;
     }
-    var EventSourceStream = class extends Transform2 {
+    var EventSourceStream = class extends Transform3 {
       /**
        * @type {eventSourceSettings}
        */
@@ -35181,12 +35181,12 @@ var init_bowser = __esm({
       describe: function describe82(ua) {
         var version = Utils.getFirstMatch(/mac os x (\d+(\.?_?\d+)+)/i, ua).replace(/[_\s]/g, ".");
         var versionName = Utils.getMacOSVersionName(version);
-        var os7 = {
+        var os8 = {
           name: OS_MAP.MacOS,
           version
         };
-        if (versionName) os7.versionName = versionName;
-        return os7;
+        if (versionName) os8.versionName = versionName;
+        return os8;
       }
     }, {
       test: [/(ipod|iphone|ipad)/i],
@@ -35217,22 +35217,22 @@ var init_bowser = __esm({
       describe: function describe85(ua) {
         var version = Utils.getFirstMatch(/android[\s/-](\d+(\.\d+)*)/i, ua);
         var versionName = Utils.getAndroidVersionName(version);
-        var os7 = {
+        var os8 = {
           name: OS_MAP.Android,
           version
         };
-        if (versionName) os7.versionName = versionName;
-        return os7;
+        if (versionName) os8.versionName = versionName;
+        return os8;
       }
     }, {
       test: [/(web|hpw)[o0]s/i],
       describe: function describe86(ua) {
         var version = Utils.getFirstMatch(/(?:web|hpw)[o0]s\/(\d+(\.\d+)*)/i, ua);
-        var os7 = {
+        var os8 = {
           name: OS_MAP.WebOS
         };
-        if (version && version.length) os7.version = version;
-        return os7;
+        if (version && version.length) os8.version = version;
+        return os8;
       }
     }, {
       test: [/blackberry|\bbb\d+/i, /rim\stablet/i],
@@ -35862,14 +35862,14 @@ var init_bowser = __esm({
       _proto.parseOS = function parseOS() {
         var _this2 = this;
         this.parsedResult.os = {};
-        var os7 = Utils.find(parser_os_default, function(_os) {
+        var os8 = Utils.find(parser_os_default, function(_os) {
           if (typeof _os.test === "function") return _os.test(_this2);
           if (Array.isArray(_os.test)) return _os.test.some(function(condition) {
             return _this2.test(condition);
           });
           throw new Error("Browser's test function is not valid");
         });
-        if (os7) this.parsedResult.os = os7.describe(this.getUA());
+        if (os8) this.parsedResult.os = os8.describe(this.getUA());
         return this.parsedResult.os;
       };
       _proto.getOSName = function getOSName(toLowerCase) {
@@ -59357,7 +59357,7 @@ var require_yauzl = __commonJS({
     var fd_slicer = require_fd_slicer();
     var util = require("util");
     var EventEmitter = require("events").EventEmitter;
-    var Transform2 = require("stream").Transform;
+    var Transform3 = require("stream").Transform;
     var PassThrough3 = require("stream").PassThrough;
     var Writable4 = require("stream").Writable;
     var crc322 = typeof zlib2.crc32 === "function" ? zlib2.crc32 : require_crc32();
@@ -60051,9 +60051,9 @@ var require_yauzl = __commonJS({
         callback();
       });
     }
-    util.inherits(AssertByteCountStream, Transform2);
+    util.inherits(AssertByteCountStream, Transform3);
     function AssertByteCountStream(byteCount) {
-      Transform2.call(this);
+      Transform3.call(this);
       this.actualByteCount = 0;
       this.expectedByteCount = byteCount;
     }
@@ -60723,7 +60723,7 @@ function info(message) {
 // src/storage/s3-store.ts
 var import_client_s3 = __toESM(require_dist_cjs16(), 1);
 var import_lib_storage = __toESM(require_dist_cjs17(), 1);
-var import_node_stream13 = require("node:stream");
+var import_node_stream14 = require("node:stream");
 var import_promises3 = require("node:stream/promises");
 
 // src/core/hash-stream.ts
@@ -61005,6 +61005,169 @@ function createHashStream() {
   return new HashCountTransform();
 }
 
+// src/shared/blob-transfer.ts
+var import_node_stream13 = require("node:stream");
+var DOWNLOAD_MAX_ATTEMPTS = 5;
+var DOWNLOAD_RETRY_BACKOFF_MS = 5e3;
+var DOWNLOAD_CHUNK_TIMEOUT_MS = 30 * 1e3;
+function defaultSleep(ms) {
+  return new Promise((resolve2) => {
+    setTimeout(resolve2, ms);
+  });
+}
+function isRetryableBlobError(error3) {
+  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError || error3 instanceof DigestMismatchError);
+}
+function withChunkInactivityTimeout(source, timeoutMs) {
+  const pass2 = new import_node_stream13.Transform({
+    transform(chunk, _encoding, callback) {
+      timer.refresh();
+      callback(null, chunk);
+    }
+  });
+  const clear = () => {
+    clearTimeout(timer);
+  };
+  const fail = () => {
+    clear();
+    const timeoutError = new Error(
+      `Blob storage chunk did not respond in ${timeoutMs}ms`
+    );
+    if (typeof source.destroy === "function") {
+      source.destroy(timeoutError);
+    }
+    pass2.destroy(timeoutError);
+  };
+  const timer = setTimeout(fail, timeoutMs);
+  pass2.on("end", clear);
+  pass2.on("close", clear);
+  pass2.on("error", clear);
+  source.on("error", (error3) => {
+    clear();
+    if (!pass2.destroyed) {
+      pass2.destroy(error3);
+    }
+  });
+  source.pipe(pass2);
+  return pass2;
+}
+function watchUploadStall(opts) {
+  const now = opts.now ?? (() => Date.now());
+  const pollMs = Math.max(1, Math.min(opts.timeoutMs, 5e3));
+  return new Promise((resolve2, reject) => {
+    const timer = setInterval(() => {
+      if (now() - opts.lastProgressMs() >= opts.timeoutMs) {
+        clearInterval(timer);
+        reject(new Error("Upload progress stalled."));
+      }
+    }, pollMs);
+    const onAbort = () => {
+      clearInterval(timer);
+      resolve2();
+    };
+    if (opts.signal.aborted) {
+      onAbort();
+      return;
+    }
+    opts.signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+async function withBlobReadRetry(open2, use, options2 = {}) {
+  const maxAttempts = options2.maxAttempts ?? DOWNLOAD_MAX_ATTEMPTS;
+  const backoffMs = options2.backoffMs ?? DOWNLOAD_RETRY_BACKOFF_MS;
+  const chunkTimeoutMs = options2.chunkTimeoutMs ?? DOWNLOAD_CHUNK_TIMEOUT_MS;
+  const sleep2 = options2.sleep ?? defaultSleep;
+  let attempt = 0;
+  let lastError;
+  while (attempt < maxAttempts) {
+    try {
+      const stream = withChunkInactivityTimeout(
+        await open2(),
+        chunkTimeoutMs
+      );
+      return await use(stream);
+    } catch (error3) {
+      if (!isRetryableBlobError(error3)) {
+        throw error3;
+      }
+      lastError = error3;
+      attempt += 1;
+      if (attempt < maxAttempts) {
+        debug(
+          `Failed to download artifact on attempt ${attempt}/${maxAttempts} due to ${error3 instanceof Error ? error3.message : String(error3)}. Retrying in ${backoffMs}ms...`
+        );
+        await sleep2(backoffMs);
+      }
+    }
+  }
+  const message = `Artifact download failed after ${attempt} attempts.`;
+  if (lastError instanceof Error) {
+    throw new Error(message, { cause: lastError });
+  }
+  throw new Error(message);
+}
+
+// src/shared/runtime-config.ts
+var os5 = __toESM(require("node:os"), 1);
+var ABSOLUTE_CONCURRENCY_CAP = 300;
+function concurrencyCapForCpu(numCPUs) {
+  let concurrencyCap = 32;
+  if (numCPUs > 4) {
+    const concurrency = 16 * numCPUs;
+    concurrencyCap = concurrency > ABSOLUTE_CONCURRENCY_CAP ? ABSOLUTE_CONCURRENCY_CAP : concurrency;
+  }
+  return concurrencyCap;
+}
+function parsePositiveIntEnv(raw, varName) {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(`Invalid value set for ${varName} env variable`);
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`Invalid value set for ${varName} env variable`);
+  }
+  return parsed;
+}
+function getConcurrency(env2 = process.env, numCPUs = os5.cpus().length) {
+  const concurrencyCap = concurrencyCapForCpu(numCPUs);
+  const concurrencyOverride = env2.ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY?.trim();
+  if (concurrencyOverride) {
+    const concurrency = parsePositiveIntEnv(
+      concurrencyOverride,
+      "ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY"
+    );
+    if (concurrency < concurrencyCap) {
+      info(
+        "Set concurrency based on the value set in ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY."
+      );
+      return concurrency;
+    }
+    info(
+      `ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY is higher than the cap of ${concurrencyCap} based on the number of cpus. Set it to the maximum value allowed.`
+    );
+    return concurrencyCap;
+  }
+  return 5;
+}
+function getUploadChunkTimeout(env2 = process.env) {
+  const timeoutVar = env2.ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS?.trim();
+  if (!timeoutVar) {
+    return 3e5;
+  }
+  return parsePositiveIntEnv(timeoutVar, "ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS");
+}
+function getMaxArtifactListCount(env2 = process.env) {
+  const maxCountVar = env2.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT?.trim();
+  if (!maxCountVar) {
+    return 1e3;
+  }
+  return parsePositiveIntEnv(maxCountVar, "ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT");
+}
+function artifactListLimitMessage(maxCount) {
+  return `Artifact list exceeded the limit of ${maxCount}. Results will be incomplete as only the first ${maxCount} artifacts will be returned`;
+}
+
 // src/shared/s3-config.ts
 function pickFirstNonEmpty(...values) {
   for (const value of values) {
@@ -61128,7 +61291,6 @@ function formatRetentionTagging(retentionDays) {
 
 // src/storage/s3-store.ts
 var PART_SIZE_BYTES = 8 * 1024 * 1024;
-var MULTIPART_QUEUE_SIZE = 4;
 var MANIFEST_READ_CONCURRENCY = 10;
 function getHttpStatus(error3) {
   if (typeof error3 !== "object" || error3 === null) {
@@ -61189,7 +61351,7 @@ function toNodeReadable(body) {
   }
   if (typeof body.transformToWebStream === "function") {
     const webStream = body.transformToWebStream();
-    return import_node_stream13.Readable.fromWeb(webStream);
+    return import_node_stream14.Readable.fromWeb(webStream);
   }
   throw new Error("Unsupported S3 response body stream type");
 }
@@ -61274,9 +61436,17 @@ var S3ArtifactStore = class {
     }
   }
   async uploadBlobSingleAttempt(blobKey, body, contentType) {
+    const queueSize = getConcurrency();
+    const timeoutMs = getUploadChunkTimeout();
+    debug(
+      `Uploading artifact with queueSize: ${queueSize}, partSize: ${PART_SIZE_BYTES}`
+    );
     const hashTransform = createHashStream();
-    const pass2 = new import_node_stream13.PassThrough();
+    const pass2 = new import_node_stream14.PassThrough();
     const streamPipe = (0, import_promises3.pipeline)(body, hashTransform, pass2);
+    const uploadAbort = new AbortController();
+    const stallAbort = new AbortController();
+    let lastProgressTime = Date.now();
     const upload = new import_lib_storage.Upload({
       client: this.client,
       params: {
@@ -61286,10 +61456,39 @@ var S3ArtifactStore = class {
         ContentType: contentType
       },
       partSize: PART_SIZE_BYTES,
-      queueSize: MULTIPART_QUEUE_SIZE,
-      leavePartsOnError: false
+      queueSize,
+      leavePartsOnError: false,
+      abortController: uploadAbort
     });
-    await Promise.all([upload.done(), streamPipe]);
+    upload.on("httpUploadProgress", () => {
+      lastProgressTime = Date.now();
+    });
+    const transfer = Promise.all([upload.done(), streamPipe]);
+    transfer.catch(() => void 0);
+    try {
+      await Promise.race([
+        transfer,
+        watchUploadStall({
+          timeoutMs,
+          signal: stallAbort.signal,
+          lastProgressMs: () => lastProgressTime
+        })
+      ]);
+    } catch (error3) {
+      uploadAbort.abort();
+      stallAbort.abort();
+      const abortErr = error3 instanceof Error ? error3 : new Error(String(error3));
+      if (typeof body.destroy === "function") {
+        ;
+        body.destroy(abortErr);
+      }
+      if (!pass2.destroyed) {
+        pass2.destroy(abortErr);
+      }
+      throw error3;
+    } finally {
+      stallAbort.abort();
+    }
     const metrics = hashTransform.result();
     return {
       blobKey,
@@ -61352,8 +61551,10 @@ var S3ArtifactStore = class {
   }
   async listManifests(scope) {
     const prefix2 = buildManifestPrefix(this.config.keyPrefix, scope);
+    const maxCount = getMaxArtifactListCount();
     const keys = [];
     let continuationToken;
+    let hitLimit = false;
     do {
       const response = await this.client.send(
         new import_client_s3.ListObjectsV2Command({
@@ -61363,12 +61564,27 @@ var S3ArtifactStore = class {
         })
       );
       for (const item of response.Contents ?? []) {
-        if (item.Key && item.Key.endsWith(".json")) {
-          keys.push(item.Key);
+        if (!item.Key || !item.Key.endsWith(".json")) {
+          continue;
         }
+        if (keys.length >= maxCount) {
+          hitLimit = true;
+          break;
+        }
+        keys.push(item.Key);
+      }
+      if (hitLimit) {
+        break;
       }
       continuationToken = response.IsTruncated ? response.NextContinuationToken : void 0;
+      if (keys.length >= maxCount && continuationToken) {
+        hitLimit = true;
+        break;
+      }
     } while (continuationToken);
+    if (hitLimit) {
+      this.warn(artifactListLimitMessage(maxCount));
+    }
     const nowMs = this.now();
     const manifests = [];
     for (let i5 = 0; i5 < keys.length; i5 += MANIFEST_READ_CONCURRENCY) {
@@ -61433,7 +61649,7 @@ var S3ArtifactStore = class {
 };
 
 // src/download/inputs.ts
-var os5 = __toESM(require("node:os"), 1);
+var os6 = __toESM(require("node:os"), 1);
 var path = __toESM(require("node:path"), 1);
 function getOptionalInput(name) {
   const value = getInput(name, { required: false });
@@ -61449,7 +61665,7 @@ function getBooleanWithDefault(name, defaultValue) {
 function expandDestinationPath(rawPath, env2, pathApi = path) {
   const target = rawPath || env2.GITHUB_WORKSPACE || process.cwd();
   if (target === "~" || target.startsWith("~/") || target.startsWith("~\\")) {
-    const home = env2.HOME || env2.USERPROFILE || os5.homedir();
+    const home = env2.HOME || env2.USERPROFILE || os6.homedir();
     return target.length === 1 ? pathApi.resolve(home) : pathApi.resolve(home, target.slice(2));
   }
   return pathApi.resolve(target);
@@ -64157,7 +64373,7 @@ var path4 = __toESM(require("node:path"), 1);
 var import_node_crypto9 = require("node:crypto");
 var fsSync = __toESM(require("node:fs"), 1);
 var fs3 = __toESM(require("node:fs/promises"), 1);
-var os6 = __toESM(require("node:os"), 1);
+var os7 = __toESM(require("node:os"), 1);
 var path3 = __toESM(require("node:path"), 1);
 var import_promises4 = require("node:stream/promises");
 var import_yauzl = __toESM(require_yauzl(), 1);
@@ -64287,7 +64503,7 @@ async function verifyDigestAndMaterialize(opts) {
       throw error3;
     }
   }
-  const tempZipPath = makeTempFilePath(os6.tmpdir(), ".s3-artifact-dl");
+  const tempZipPath = makeTempFilePath(os7.tmpdir(), ".s3-artifact-dl");
   try {
     const actualDigest = await spoolStreamToFileWithDigest(
       opts.stream,
@@ -64357,16 +64573,18 @@ async function runDownload(inputs, deps) {
     const results = await Promise.all(
       batch.map(async (manifest) => {
         const destDir = extractDirectly ? inputs.destinationPath : path4.join(inputs.destinationPath, manifest.name);
-        const stream = await deps.store.openBlobStream(manifest.blobKey);
-        const materialized = await verifyDigestAndMaterialize({
-          stream,
-          expectedDigest: manifest.digest,
-          destinationDir: destDir,
-          archived: manifest.archived,
-          rawFileName: manifest.rawFileName,
-          skipDecompress: inputs.skipDecompress,
-          abortOnDigestMismatch
-        });
+        const materialized = await withBlobReadRetry(
+          () => deps.store.openBlobStream(manifest.blobKey),
+          (stream) => verifyDigestAndMaterialize({
+            stream,
+            expectedDigest: manifest.digest,
+            destinationDir: destDir,
+            archived: manifest.archived,
+            rawFileName: manifest.rawFileName,
+            skipDecompress: inputs.skipDecompress,
+            abortOnDigestMismatch
+          })
+        );
         return { manifest, materialized };
       })
     );

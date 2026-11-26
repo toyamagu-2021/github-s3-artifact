@@ -87,6 +87,8 @@ Each drive writes a directory that cleanup does not delete:
 
 `no-files` writes `summary.md` plus `warn/`, `error/`, and `ignore/`. Each of those directories has `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, and `github-output.txt`. It does not write `objects.json`.
 
+`artifact-list-cap` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, and `github-output.txt`. It does not write `objects.json`. The summary records the exit code and that `out-cap/a.txt` was kept while `out-cap/side-b` was absent.
+
 Capture the action result and the stored object. An exit code by itself is not proof. A zip proof reads the stored object and checks the entry bytes. A download proof reads the extracted workspace file.
 
 ## Cleanup
