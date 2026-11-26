@@ -35,3 +35,7 @@ await bundleEntry(
   path.join(ROOT_DIR, 'src/download/index.ts'),
   path.join(DIST_DIR, 'download/index.js')
 )
+await bundleEntry(
+  path.join(ROOT_DIR, 'src/merge/index.ts'),
+  path.join(DIST_DIR, 'merge/index.js')
+)

@@ -61416,6 +61416,20 @@ var S3ArtifactStore = class {
       throw error3;
     }
   }
+  async deleteArtifact(scope, name) {
+    const found = await this.getManifestWithMeta(scope, name);
+    if (!found) {
+      return;
+    }
+    const manifestKey = buildManifestKey(this.config.keyPrefix, scope, name);
+    await this.client.send(
+      new import_client_s3.DeleteObjectCommand({
+        Bucket: this.config.bucket,
+        Key: manifestKey
+      })
+    );
+    await this.deleteBlobBestEffort(found.manifest.blobKey);
+  }
   async deleteBlobBestEffort(blobKey) {
     try {
       await this.client.send(

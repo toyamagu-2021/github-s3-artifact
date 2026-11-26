@@ -31,7 +31,7 @@ function usage() {
   return [
     'Usage: node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs <command> [feature] [--state path]',
     'Commands: launch, doctor, drive <feature>, cleanup',
-    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files'
+    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files, merge-artifacts'
   ].join('\n')
 }
 
@@ -412,7 +412,8 @@ async function doctor(explicitState) {
   }
   const uploadBundle = path.join(repoRoot, 'dist/upload/index.js')
   const downloadBundle = path.join(repoRoot, 'dist/download/index.js')
-  for (const bundle of [uploadBundle, downloadBundle]) {
+  const mergeBundle = path.join(repoRoot, 'dist/merge/index.js')
+  for (const bundle of [uploadBundle, downloadBundle, mergeBundle]) {
     const stat = await fs.stat(bundle).catch(() => null)
     if (!stat || stat.size < 1000) {
       problems.push(`missing built bundle ${bundle}. Run npm run build.`)
@@ -434,6 +435,7 @@ async function doctor(explicitState) {
   }
   const uploadSha = await sha256File(uploadBundle)
   const downloadSha = await sha256File(downloadBundle)
+  const mergeSha = await sha256File(mergeBundle)
   console.log('doctor ok')
   console.log('health: live')
   console.log(`endpoint: ${state.endpoint}`)
@@ -446,6 +448,7 @@ async function doctor(explicitState) {
   console.log(`github-run-id: ${state.githubRunId}`)
   console.log(`upload-bundle-sha256: ${uploadSha}`)
   console.log(`download-bundle-sha256: ${downloadSha}`)
+  console.log(`merge-bundle-sha256: ${mergeSha}`)
   if (major !== 24) {
     console.log(`runtime-gap: action.yml requests node24, selected node is ${version}`)
   }
@@ -950,6 +953,101 @@ async function cleanup(explicitState) {
   console.log(`evidence kept under ${path.join(evidenceRoot, state.id)}`)
 }
 
+async function driveMergeArtifacts(state) {
+  const dir = path.join(evidenceRoot, state.id, 'merge-artifacts')
+  await fs.mkdir(path.join(state.workspace, 'merge-src'), {recursive: true})
+  await fs.writeFile(path.join(state.workspace, 'merge-src/left.txt'), 'left-body\n')
+  await fs.writeFile(path.join(state.workspace, 'merge-src/right.txt'), 'right-body\n')
+  const left = await runAction(
+    state,
+    'upload',
+    {name: 'side-left', path: 'merge-src/left.txt'},
+    'merge-upload-left'
+  )
+  const right = await runAction(
+    state,
+    'upload',
+    {name: 'side-right', path: 'merge-src/right.txt'},
+    'merge-upload-right'
+  )
+  const run = await runAction(
+    state,
+    'merge',
+    {name: 'merged-sides', pattern: 'side-*', 'delete-merged': 'true'},
+    'merge-artifacts'
+  )
+  let objects
+  let summary
+  try {
+    assert(left.code === 0, `left upload exit ${left.code}\n${combinedOutput(left)}`)
+    assert(right.code === 0, `right upload exit ${right.code}\n${combinedOutput(right)}`)
+    assert(run.code === 0, `merge exit ${run.code}\n${combinedOutput(run)}`)
+    assert(combinedOutput(run).includes('2 artifact(s) have been deleted'), 'merge did not delete both sources')
+    const id = run.outputs['artifact-id']
+    const digest = run.outputs['artifact-digest']
+    const url = run.outputs['artifact-url']
+    assert(/^\d+$/.test(id ?? ''), `artifact-id is not a positive integer: ${id}`)
+    assert(/^[0-9a-f]{64}$/.test(digest ?? ''), `artifact-digest is not 64 hex chars: ${digest}`)
+    const mergedKey = manifestKey(state, 'merged-sides')
+    const leftKey = manifestKey(state, 'side-left')
+    const rightKey = manifestKey(state, 'side-right')
+    objects = await withClient(state, async (client, api) => {
+      await assertAbsent(client, api, state.bucket, leftKey)
+      await assertAbsent(client, api, state.bucket, rightKey)
+      const manifestHead = await headObject(client, api, state.bucket, mergedKey)
+      const manifestBytes = await getObjectBuffer(client, api, state.bucket, mergedKey)
+      const manifest = JSON.parse(manifestBytes.toString('utf8'))
+      const blobHead = await headObject(client, api, state.bucket, manifest.blobKey)
+      const blob = await getObjectBuffer(client, api, state.bucket, manifest.blobKey)
+      const blobSha = sha256(blob)
+      assert(manifest.name === 'merged-sides', `manifest name ${manifest.name}`)
+      assert(String(manifest.id) === id, `manifest id ${manifest.id} != output ${id}`)
+      assert(manifest.digest === `sha256:${digest}`, `manifest digest ${manifest.digest}`)
+      assert(blobSha === digest, `blob sha256 ${blobSha} != output digest ${digest}`)
+      assert(url === `s3://${state.bucket}/${manifest.blobKey}`, `artifact-url ${url}`)
+      const zipPath = path.join(dir, 'blob.zip')
+      await fs.mkdir(dir, {recursive: true})
+      await fs.writeFile(zipPath, blob)
+      const leftEntry = await readZipEntry(zipPath, 'left.txt')
+      const rightEntry = await readZipEntry(zipPath, 'right.txt')
+      assert(leftEntry.body === 'left-body\n', `left entry ${JSON.stringify(leftEntry.body)}`)
+      assert(rightEntry.body === 'right-body\n', `right entry ${JSON.stringify(rightEntry.body)}`)
+      return {
+        blob: blobHead,
+        manifest: manifestHead,
+        manifestBody: manifest,
+        blobSha256: blobSha,
+        zipEntries: leftEntry.names,
+        deletedManifests: [leftKey, rightKey]
+      }
+    })
+    summary = [
+      '# merge-artifacts',
+      '',
+      'The merge action combined two uploads and deleted the source manifests.',
+      '',
+      `- Exit code: ${run.code}`,
+      `- artifact-id: ${run.outputs['artifact-id']}`,
+      `- artifact-digest: ${run.outputs['artifact-digest']}`,
+      `- artifact-url: ${run.outputs['artifact-url']}`,
+      `- Blob key: ${objects.blob.key}`,
+      `- Blob ETag: ${objects.blob.etag}`,
+      `- Blob size: ${objects.blob.size}`,
+      `- Blob sha256: ${objects.blobSha256}`,
+      `- Manifest key: ${objects.manifest.key}`,
+      `- Zip entries: ${objects.zipEntries.join(', ')}`,
+      '- Source manifests side-left and side-right are absent.'
+    ].join('\n')
+    await writeEvidence(dir, run, {objects, summary})
+    console.log('drive ok merge-artifacts')
+    console.log(`evidence: ${dir}`)
+  } catch (error) {
+    summary = `# merge-artifacts\n\nFailed.\n\n${error instanceof Error ? error.message : String(error)}\n`
+    await writeEvidence(dir, run, {objects, summary})
+    throw error
+  }
+}
+
 async function main() {
   const {command, feature, statePath} = parseArgs(process.argv)
   if (command === 'launch') {
@@ -970,7 +1068,8 @@ async function main() {
       'upload-raw': driveUploadRaw,
       'download-by-name': driveDownloadByName,
       'reject-duplicate': driveRejectDuplicate,
-      'no-files': driveNoFiles
+      'no-files': driveNoFiles,
+      'merge-artifacts': driveMergeArtifacts
     }
     const drive = drives[feature]
     if (!drive) {
