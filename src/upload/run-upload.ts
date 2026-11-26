@@ -23,6 +23,10 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 export interface UploadDeps {
   readonly store: ArtifactStore
   readonly now?: () => number
+  readonly presignGetObject?: (
+    blobKey: string,
+    expiresInSeconds: number
+  ) => Promise<string>
 }
 
 export async function runUpload(
@@ -145,11 +149,24 @@ export async function runUpload(
     await deps.store.deleteBlobBestEffort(existing.manifest.blobKey)
   }
 
+  let artifactUrl = blobResult.artifactUrl
+  if (inputs.artifactUrlFormat === 'presigned') {
+    if (!deps.presignGetObject) {
+      throw new ArtifactValidationError(
+        'Presigned artifact URLs require an S3 client'
+      )
+    }
+    artifactUrl = await deps.presignGetObject(
+      blobResult.blobKey,
+      inputs.presignExpiresSeconds
+    )
+  }
+
   const hexDigest = stripSha256Prefix(blobResult.digest)
   core.info(
     `Artifact '${artifactName}' uploaded (${blobResult.size} bytes, ID ${artifactId}, digest ${hexDigest})`
   )
   core.setOutput('artifact-id', artifactId)
   core.setOutput('artifact-digest', hexDigest)
-  core.setOutput('artifact-url', blobResult.artifactUrl)
+  core.setOutput('artifact-url', artifactUrl)
 }

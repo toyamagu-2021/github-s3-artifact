@@ -1,6 +1,10 @@
 import {createHash} from 'node:crypto'
 import {Readable} from 'node:stream'
-import {ArtifactConflictError, ArtifactNotFoundError} from '../shared/errors.js'
+import {
+  ArtifactConflictError,
+  ArtifactNotFoundError,
+  ArtifactValidationError
+} from '../shared/errors.js'
 import {
   type ArtifactManifestV1,
   type ArtifactName,
@@ -169,5 +173,13 @@ export class InMemoryArtifactStore implements ArtifactStore {
     this.blobs.delete(blobKey)
     this.tags.delete(blobKey)
     return Promise.resolve()
+  }
+
+  presignGetObject(_blobKey: string, _expiresInSeconds: number): Promise<string> {
+    return Promise.reject(
+      new ArtifactValidationError(
+        'Presigned artifact URLs require an S3 client'
+      )
+    )
   }
 }

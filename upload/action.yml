@@ -50,12 +50,20 @@ inputs:
   session-token:
     description: 'Optional AWS session token override (masked automatically).'
     required: false
+  artifact-url-format:
+    description: 'artifact-url format. s3 (default) emits s3://<bucket>/<key>. presigned emits a signed GetObject URL. Env fallback: S3_ARTIFACT_URL_FORMAT.'
+    default: 's3'
+    required: false
+  presign-expires-seconds:
+    description: 'Lifetime of a presigned artifact-url, from 1 to 604800 seconds. Default 3600. Env fallback: S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS.'
+    default: '3600'
+    required: false
 
 outputs:
   artifact-id:
     description: 'Unique 53-bit integer identifier for the uploaded artifact.'
   artifact-url:
-    description: 'S3 URI (s3://<bucket>/<blobKey>) for the uploaded artifact blob.'
+    description: 'S3 URI (s3://<bucket>/<blobKey>) by default, or a presigned GetObject URL when artifact-url-format is presigned.'
   artifact-digest:
     description: 'Hex-encoded SHA-256 digest (without sha256: prefix) for the uploaded artifact.'
 

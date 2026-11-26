@@ -19,7 +19,12 @@ export async function runUploadAction(
     const store = opts.createStore
       ? opts.createStore(inputs.s3)
       : new S3ArtifactStore(inputs.s3)
-    await runUpload(inputs, {store, now: opts.now})
+    await runUpload(inputs, {
+      store,
+      now: opts.now,
+      presignGetObject: (blobKey, expiresInSeconds) =>
+        store.presignGetObject(blobKey, expiresInSeconds)
+    })
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error))
   }

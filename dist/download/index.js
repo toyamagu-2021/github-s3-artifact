@@ -37440,14 +37440,14 @@ var init_s3_expires_middleware = __esm({
 // node_modules/@smithy/signature-v4/dist-cjs/index.js
 var require_dist_cjs2 = __commonJS({
   "node_modules/@smithy/signature-v4/dist-cjs/index.js"(exports2) {
-    var { hasOwn: hasOwn2, fromUtf8: fromUtf83, fromHex: fromHex2, toHex: toHex2, toUint8Array: toUint8Array2, writeKey: writeKey3, isArrayBuffer: isArrayBuffer2 } = (init_serde(), __toCommonJS(serde_exports));
+    var { hasOwn: hasOwn3, fromUtf8: fromUtf83, fromHex: fromHex2, toHex: toHex2, toUint8Array: toUint8Array2, writeKey: writeKey3, isArrayBuffer: isArrayBuffer2 } = (init_serde(), __toCommonJS(serde_exports));
     var { normalizeProvider: normalizeProvider3 } = (init_client2(), __toCommonJS(client_exports));
     var { escapeUri: escapeUri2, HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var HeaderFormatter = class {
       format(headers) {
         const chunks = [];
         for (const headerName in headers) {
-          if (!hasOwn2(headers, headerName)) {
+          if (!hasOwn3(headers, headerName)) {
             continue;
           }
           const bytes = fromUtf83(headerName);
@@ -37618,7 +37618,7 @@ var require_dist_cjs2 = __commonJS({
       const keys = [];
       const serialized = {};
       for (const key in query) {
-        if (!hasOwn2(query, key)) {
+        if (!hasOwn3(query, key)) {
           continue;
         }
         if (key.toLowerCase() === SIGNATURE_HEADER) {
@@ -37757,7 +37757,7 @@ ${toHex2(hashedRequest)}`;
           continue;
         }
         const canonicalHeaderName = headerName.toLowerCase();
-        if (hasOwn2(ALWAYS_UNSIGNABLE_HEADERS, canonicalHeaderName) || unsignableHeaders?.has(canonicalHeaderName) || PROXY_HEADER_PATTERN.test(canonicalHeaderName) || SEC_HEADER_PATTERN.test(canonicalHeaderName)) {
+        if (hasOwn3(ALWAYS_UNSIGNABLE_HEADERS, canonicalHeaderName) || unsignableHeaders?.has(canonicalHeaderName) || PROXY_HEADER_PATTERN.test(canonicalHeaderName) || SEC_HEADER_PATTERN.test(canonicalHeaderName)) {
           if (!signableHeaders || signableHeaders && !signableHeaders.has(canonicalHeaderName)) {
             continue;
           }
@@ -37771,7 +37771,7 @@ ${toHex2(hashedRequest)}`;
     };
     var getPayloadHash = async ({ headers, body }, hashConstructor) => {
       for (const headerName in headers) {
-        if (!hasOwn2(headers, headerName)) {
+        if (!hasOwn3(headers, headerName)) {
           continue;
         }
         if (headerName.toLowerCase() === SHA256_HEADER) {
@@ -37790,7 +37790,7 @@ ${toHex2(hashedRequest)}`;
     var hasHeader2 = (soughtHeader, headers) => {
       soughtHeader = soughtHeader.toLowerCase();
       for (const headerName in headers) {
-        if (!hasOwn2(headers, headerName)) {
+        if (!hasOwn3(headers, headerName)) {
           continue;
         }
         if (soughtHeader === headerName.toLowerCase()) {
@@ -37802,7 +37802,7 @@ ${toHex2(hashedRequest)}`;
     var moveHeadersToQuery = (request, options2 = {}) => {
       const { headers, query = {} } = HttpRequest2.clone(request);
       for (const name in headers) {
-        if (!hasOwn2(headers, name)) {
+        if (!hasOwn3(headers, name)) {
           continue;
         }
         const lname = name.toLowerCase();
@@ -37820,7 +37820,7 @@ ${toHex2(hashedRequest)}`;
     var prepareRequest = (request) => {
       request = HttpRequest2.clone(request);
       for (const headerName in request.headers) {
-        if (!hasOwn2(request.headers, headerName)) {
+        if (!hasOwn3(request.headers, headerName)) {
           continue;
         }
         if (GENERATED_HEADERS.indexOf(headerName.toLowerCase()) > -1) {
@@ -38335,7 +38335,7 @@ var init_throw_200_exceptions = __esm({
 });
 
 // node_modules/@aws-sdk/core/dist-es/submodules/util/util-arn-parser/arn.js
-var validate, parse2;
+var validate, parse2, build;
 var init_arn = __esm({
   "node_modules/@aws-sdk/core/dist-es/submodules/util/util-arn-parser/arn.js"() {
     validate = (str) => typeof str === "string" && str.indexOf("arn:") === 0 && str.split(":").length >= 6;
@@ -38353,13 +38353,74 @@ var init_arn = __esm({
         resource: resource.join(":")
       };
     };
+    build = (arnObject) => {
+      const { partition: partition2 = "aws", service, region, accountId, resource } = arnObject;
+      if ([service, region, accountId, resource].some((segment) => typeof segment !== "string")) {
+        throw new Error("Input ARN object is invalid");
+      }
+      return `arn:${partition2}:${service}:${region}:${accountId}:${resource}`;
+    };
+  }
+});
+
+// node_modules/@aws-sdk/core/dist-es/submodules/util/util-format-url/format-url.js
+function formatUrl(request) {
+  const { port, query } = request;
+  let { protocol, path: path5, hostname } = request;
+  if (protocol && protocol.slice(-1) !== ":") {
+    protocol += ":";
+  }
+  if (port) {
+    hostname += `:${port}`;
+  }
+  if (path5 && path5.charAt(0) !== "/") {
+    path5 = `/${path5}`;
+  }
+  let queryString = query ? buildQueryString(query) : "";
+  if (queryString && queryString[0] !== "?") {
+    queryString = `?${queryString}`;
+  }
+  let auth = "";
+  if (request.username != null || request.password != null) {
+    const username = request.username ?? "";
+    const password = request.password ?? "";
+    auth = `${username}:${password}@`;
+  }
+  let fragment = "";
+  if (request.fragment) {
+    fragment = `#${request.fragment}`;
+  }
+  return `${protocol}//${auth}${hostname}${path5}${queryString}${fragment}`;
+}
+var init_format_url = __esm({
+  "node_modules/@aws-sdk/core/dist-es/submodules/util/util-format-url/format-url.js"() {
+    init_protocols();
+  }
+});
+
+// node_modules/@aws-sdk/core/dist-es/submodules/util/hasOwn.js
+function hasOwn2(container, key) {
+  return Object.prototype.hasOwnProperty.call(container, key);
+}
+var init_hasOwn2 = __esm({
+  "node_modules/@aws-sdk/core/dist-es/submodules/util/hasOwn.js"() {
   }
 });
 
 // node_modules/@aws-sdk/core/dist-es/submodules/util/index.js
+var util_exports = {};
+__export(util_exports, {
+  build: () => build,
+  formatUrl: () => formatUrl,
+  hasOwn: () => hasOwn2,
+  parse: () => parse2,
+  validate: () => validate
+});
 var init_util2 = __esm({
   "node_modules/@aws-sdk/core/dist-es/submodules/util/index.js"() {
     init_arn();
+    init_format_url();
+    init_hasOwn2();
   }
 });
 
@@ -41478,7 +41539,7 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
 // node_modules/@smithy/node-http-handler/dist-cjs/index.js
 var require_dist_cjs7 = __commonJS({
   "node_modules/@smithy/node-http-handler/dist-cjs/index.js"(exports2) {
-    var { hasOwn: hasOwn2 } = (init_serde(), __toCommonJS(serde_exports));
+    var { hasOwn: hasOwn3 } = (init_serde(), __toCommonJS(serde_exports));
     var { streamCollector: streamCollector7 } = (init_serde(), __toCommonJS(serde_exports));
     exports2.streamCollector = streamCollector7;
     var { buildQueryString: buildQueryString2, HttpResponse: HttpResponse2 } = (init_protocols(), __toCommonJS(protocols_exports));
@@ -41506,7 +41567,7 @@ var require_dist_cjs7 = __commonJS({
     var getTransformedHeaders = (headers) => {
       const transformedHeaders = {};
       for (const name in headers) {
-        if (!hasOwn2(headers, name)) {
+        if (!hasOwn3(headers, name)) {
           continue;
         }
         const headerValues = headers[name];
@@ -41712,7 +41773,7 @@ var require_dist_cjs7 = __commonJS({
         }
         if (sockets && requests) {
           for (const origin in sockets) {
-            if (!hasOwn2(sockets, origin)) {
+            if (!hasOwn3(sockets, origin)) {
               continue;
             }
             const socketsInUse = sockets[origin]?.length ?? 0;
@@ -58865,6 +58926,132 @@ to input.params.ContentLength in bytes.
   }
 });
 
+// node_modules/@aws-sdk/s3-request-presigner/dist-cjs/index.js
+var require_dist_cjs18 = __commonJS({
+  "node_modules/@aws-sdk/s3-request-presigner/dist-cjs/index.js"(exports2) {
+    var { formatUrl: formatUrl2 } = (init_util2(), __toCommonJS(util_exports));
+    var { getEndpointFromInstructions: getEndpointFromInstructions2 } = (init_endpoints(), __toCommonJS(endpoints_exports));
+    var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
+    var { SignatureV4MultiRegion: SignatureV4MultiRegion3 } = require_dist_cjs3();
+    var UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
+    var SHA256_HEADER = "X-Amz-Content-Sha256";
+    var S3RequestPresigner = class {
+      signer;
+      constructor(options2) {
+        const resolvedOptions = {
+          service: options2.signingName || options2.service || "s3",
+          uriEscapePath: options2.uriEscapePath || false,
+          applyChecksum: options2.applyChecksum || false,
+          ...options2
+        };
+        this.signer = new SignatureV4MultiRegion3(resolvedOptions);
+      }
+      presign(requestToSign, { unsignableHeaders = /* @__PURE__ */ new Set(), hoistableHeaders = /* @__PURE__ */ new Set(), unhoistableHeaders = /* @__PURE__ */ new Set(), ...options2 } = {}) {
+        this.prepareRequest(requestToSign, {
+          unsignableHeaders,
+          unhoistableHeaders,
+          hoistableHeaders
+        });
+        return this.signer.presign(requestToSign, {
+          expiresIn: 900,
+          unsignableHeaders,
+          unhoistableHeaders,
+          ...options2
+        });
+      }
+      presignWithCredentials(requestToSign, credentials, { unsignableHeaders = /* @__PURE__ */ new Set(), hoistableHeaders = /* @__PURE__ */ new Set(), unhoistableHeaders = /* @__PURE__ */ new Set(), ...options2 } = {}) {
+        this.prepareRequest(requestToSign, {
+          unsignableHeaders,
+          unhoistableHeaders,
+          hoistableHeaders
+        });
+        return this.signer.presignWithCredentials(requestToSign, credentials, {
+          expiresIn: 900,
+          unsignableHeaders,
+          unhoistableHeaders,
+          ...options2
+        });
+      }
+      prepareRequest(requestToSign, { unsignableHeaders = /* @__PURE__ */ new Set(), unhoistableHeaders = /* @__PURE__ */ new Set(), hoistableHeaders = /* @__PURE__ */ new Set() } = {}) {
+        unsignableHeaders.add("content-type");
+        Object.keys(requestToSign.headers).map((header) => header.toLowerCase()).filter((header) => header.startsWith("x-amz-server-side-encryption")).forEach((header) => {
+          if (!hoistableHeaders.has(header)) {
+            unhoistableHeaders.add(header);
+          }
+        });
+        requestToSign.headers[SHA256_HEADER] = UNSIGNED_PAYLOAD;
+        const currentHostHeader = requestToSign.headers.host;
+        const port = requestToSign.port;
+        const expectedHostHeader = `${requestToSign.hostname}${requestToSign.port != null ? ":" + port : ""}`;
+        if (!currentHostHeader || currentHostHeader === requestToSign.hostname && requestToSign.port != null) {
+          requestToSign.headers.host = expectedHostHeader;
+        }
+      }
+    };
+    var getSignedUrl2 = async (client, command5, options2 = {}) => {
+      let s3Presigner;
+      let region;
+      if (typeof client.config.endpointProvider === "function") {
+        const endpointV2 = await getEndpointFromInstructions2(command5.input, command5.constructor, client.config);
+        const authScheme = endpointV2.properties?.authSchemes?.[0];
+        if (authScheme?.name === "sigv4a") {
+          region = authScheme?.signingRegionSet?.join(",");
+        } else {
+          region = authScheme?.signingRegion;
+        }
+        s3Presigner = new S3RequestPresigner({
+          ...client.config,
+          signingName: authScheme?.signingName,
+          region: async () => region
+        });
+      } else {
+        s3Presigner = new S3RequestPresigner(client.config);
+      }
+      const presignInterceptMiddleware = (next, context) => async (args) => {
+        const { request } = args;
+        if (!HttpRequest2.isInstance(request)) {
+          throw new Error("Request to be presigned is not an valid HTTP request.");
+        }
+        delete request.headers["amz-sdk-invocation-id"];
+        delete request.headers["amz-sdk-request"];
+        delete request.headers["x-amz-user-agent"];
+        let presigned2;
+        const presignerOptions = {
+          ...options2,
+          signingRegion: options2.signingRegion ?? context["signing_region"] ?? region,
+          signingService: options2.signingService ?? context["signing_service"]
+        };
+        if (context.s3ExpressIdentity) {
+          presigned2 = await s3Presigner.presignWithCredentials(request, context.s3ExpressIdentity, presignerOptions);
+        } else {
+          presigned2 = await s3Presigner.presign(request, presignerOptions);
+        }
+        return {
+          response: {},
+          output: {
+            $metadata: { httpStatusCode: 200 },
+            presigned: presigned2
+          }
+        };
+      };
+      const middlewareName = "presignInterceptMiddleware";
+      const clientStack = client.middlewareStack.clone();
+      clientStack.addRelativeTo(presignInterceptMiddleware, {
+        name: middlewareName,
+        relation: "before",
+        toMiddleware: "awsAuthMiddleware",
+        override: true
+      });
+      const handler = command5.resolveMiddleware(clientStack, client.config, {});
+      const { output } = await handler({ input: command5.input });
+      const { presigned } = output;
+      return formatUrl2(presigned);
+    };
+    exports2.S3RequestPresigner = S3RequestPresigner;
+    exports2.getSignedUrl = getSignedUrl2;
+  }
+});
+
 // node_modules/pend/index.js
 var require_pend = __commonJS({
   "node_modules/pend/index.js"(exports2, module2) {
@@ -60723,6 +60910,7 @@ function info(message) {
 // src/storage/s3-store.ts
 var import_client_s3 = __toESM(require_dist_cjs16(), 1);
 var import_lib_storage = __toESM(require_dist_cjs17(), 1);
+var import_s3_request_presigner = __toESM(require_dist_cjs18(), 1);
 var import_node_stream13 = require("node:stream");
 var import_promises3 = require("node:stream/promises");
 
@@ -61415,6 +61603,16 @@ var S3ArtifactStore = class {
       }
       throw error3;
     }
+  }
+  presignGetObject(blobKey, expiresInSeconds) {
+    return (0, import_s3_request_presigner.getSignedUrl)(
+      this.client,
+      new import_client_s3.GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: blobKey
+      }),
+      { expiresIn: expiresInSeconds }
+    );
   }
   async deleteBlobBestEffort(blobKey) {
     try {

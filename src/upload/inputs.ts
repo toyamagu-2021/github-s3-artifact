@@ -18,6 +18,8 @@ export interface UploadActionInputs {
   readonly overwrite: boolean
   readonly includeHiddenFiles: boolean
   readonly archive: boolean
+  readonly artifactUrlFormat: 's3' | 'presigned'
+  readonly presignExpiresSeconds: number
   readonly s3: S3BackendConfig
   readonly scope: RunScope
 }
@@ -112,6 +114,33 @@ export function parseUploadInputs(
   const overwrite = getBooleanWithDefault('overwrite', false)
   const includeHiddenFiles = getBooleanWithDefault('include-hidden-files', false)
   const archive = getBooleanWithDefault('archive', true)
+  const formatRaw = (
+    getOptionalInput('artifact-url-format') ??
+    env.S3_ARTIFACT_URL_FORMAT ??
+    's3'
+  ).toLowerCase()
+  if (formatRaw !== 's3' && formatRaw !== 'presigned') {
+    throw new ArtifactValidationError(
+      `Unrecognized artifact-url-format: '${formatRaw}'. Expected s3 or presigned.`
+    )
+  }
+  const expiresRaw =
+    getOptionalInput('presign-expires-seconds') ??
+    env.S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS
+  let presignExpiresSeconds = 3600
+  if (expiresRaw !== undefined) {
+    const parsedExpires = Number(expiresRaw.trim())
+    if (
+      !Number.isInteger(parsedExpires) ||
+      parsedExpires < 1 ||
+      parsedExpires > 604800
+    ) {
+      throw new ArtifactValidationError(
+        `Invalid presign-expires-seconds: '${expiresRaw}'. Expected an integer from 1 to 604800.`
+      )
+    }
+    presignExpiresSeconds = parsedExpires
+  }
 
   const s3 = parseS3BackendConfig(
     {
@@ -142,6 +171,8 @@ export function parseUploadInputs(
     overwrite,
     includeHiddenFiles,
     archive,
+    artifactUrlFormat: formatRaw,
+    presignExpiresSeconds,
     s3,
     scope
   }

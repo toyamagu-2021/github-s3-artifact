@@ -31,7 +31,7 @@ function usage() {
   return [
     'Usage: node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs <command> [feature] [--state path]',
     'Commands: launch, doctor, drive <feature>, cleanup',
-    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files'
+    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files, presigned-url'
   ].join('\n')
 }
 
@@ -906,6 +906,72 @@ async function driveNoFiles(state) {
   console.log(`evidence: ${dir}`)
 }
 
+async function drivePresignedUrl(state) {
+  const dir = path.join(evidenceRoot, state.id, 'presigned-url')
+  const filePath = path.join(state.workspace, 'dist-fixture/app.txt')
+  await fs.mkdir(path.dirname(filePath), {recursive: true})
+  await fs.writeFile(filePath, HELLO_BODY)
+  const run = await runAction(
+    state,
+    'upload',
+    {
+      name: 'presigned-one',
+      path: 'dist-fixture/app.txt',
+      'artifact-url-format': 'presigned',
+      'presign-expires-seconds': '120'
+    },
+    'presigned-url'
+  )
+  let objects
+  let summary
+  try {
+    assert(run.code === 0, `upload exit ${run.code}\n${combinedOutput(run)}`)
+    const url = run.outputs['artifact-url']
+    assert(typeof url === 'string' && url.startsWith('http'), `artifact-url ${url}`)
+    assert(!url.startsWith('s3://'), 'presigned output stayed an s3 URI')
+    const id = run.outputs['artifact-id']
+    const digest = run.outputs['artifact-digest']
+    assert(url.includes(`/blobs/${id}`), `signed URL missing blob id: ${url}`)
+    const response = await fetch(url)
+    assert(response.ok, `GET presigned URL returned HTTP ${response.status}`)
+    const downloaded = Buffer.from(await response.arrayBuffer())
+    const downloadedSha = sha256(downloaded)
+    assert(downloadedSha === digest, `downloaded sha ${downloadedSha} != ${digest}`)
+    const key = manifestKey(state, 'presigned-one')
+    objects = await withClient(state, async (client, api) => {
+      const manifestBytes = await getObjectBuffer(client, api, state.bucket, key)
+      const manifest = JSON.parse(manifestBytes.toString('utf8'))
+      const blob = await getObjectBuffer(client, api, state.bucket, manifest.blobKey)
+      assert(sha256(blob) === digest, 'stored blob sha does not match the output digest')
+      const zipPath = path.join(dir, 'blob.zip')
+      await fs.mkdir(dir, {recursive: true})
+      await fs.writeFile(zipPath, blob)
+      const zip = await readZipEntry(zipPath, 'app.txt')
+      assert(zip.body === HELLO_BODY, `zip entry ${JSON.stringify(zip.body)}`)
+      return {manifestBody: manifest, downloadedSha}
+    })
+    summary = [
+      '# presigned-url',
+      '',
+      'Upload with artifact-url-format=presigned returned a signed URL that downloaded the zip.',
+      '',
+      `- Exit code: ${run.code}`,
+      `- artifact-id: ${id}`,
+      `- artifact-digest: ${digest}`,
+      `- artifact-url scheme: ${new URL(url).protocol}`,
+      `- Downloaded sha256: ${objects.downloadedSha}`,
+      '- Zip entry `app.txt` matches the workspace file.'
+    ].join('\n')
+    await writeEvidence(dir, run, {objects, summary})
+    console.log('drive ok presigned-url')
+    console.log(`evidence: ${dir}`)
+  } catch (error) {
+    summary = `# presigned-url\n\nFailed.\n\n${error instanceof Error ? error.message : String(error)}\n`
+    await writeEvidence(dir, run, {objects, summary})
+    throw error
+  }
+}
+
 async function stopPid(pid) {
   if (!pid || !pidAlive(pid)) {
     return
@@ -970,7 +1036,8 @@ async function main() {
       'upload-raw': driveUploadRaw,
       'download-by-name': driveDownloadByName,
       'reject-duplicate': driveRejectDuplicate,
-      'no-files': driveNoFiles
+      'no-files': driveNoFiles,
+      'presigned-url': drivePresignedUrl
     }
     const drive = drives[feature]
     if (!drive) {
