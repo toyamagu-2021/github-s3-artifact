@@ -131,7 +131,9 @@ describe('Phase 2: search, zip creation, extraction, Zip-Slip, and digest verifi
 
       const withHidden = await findFilesToUpload(path.join(tmp, '**/*'), true)
       expect(withHidden.filesToUpload.some(f => f.endsWith('.env'))).toBe(true)
-      expect(withHidden.filesToUpload.some(f => f.endsWith('.hidden/file.txt'))).toBe(true)
+      expect(
+        withHidden.filesToUpload.some(f => f.endsWith(path.join('.hidden', 'file.txt')))
+      ).toBe(true)
 
       const zipStream = await createZipArchiveStream(multiSpec, 6)
       const zipBuffer = await collectStream(zipStream)

@@ -17,27 +17,54 @@ export interface ZipFileEntrySpec {
   readonly isSymbolicLink: boolean
 }
 
-function getMultiPathLCA(searchPaths: readonly string[]): string {
-  const splitPaths = searchPaths.map(p => path.normalize(p).split(path.sep))
-  const smallestLength = Math.min(...splitPaths.map(parts => parts.length))
+export function getMultiPathLCA(
+  searchPaths: readonly string[],
+  pathApi: path.PlatformPath = path
+): string {
+  if (searchPaths.length === 0) {
+    return pathApi.join()
+  }
+
+  const parsedPaths = searchPaths.map(p => {
+    const normalized = pathApi.normalize(p)
+    const {root} = pathApi.parse(normalized)
+    const remainder = normalized.slice(root.length)
+    const segments = remainder
+      ? remainder.split(pathApi.sep).filter(Boolean)
+      : []
+    return {root, segments}
+  })
+
+  const firstRoot = parsedPaths[0]!.root
+  const isWin32 = pathApi.sep === '\\'
+  const sameRoot = parsedPaths.every(entry =>
+    isWin32
+      ? entry.root.toLowerCase() === firstRoot.toLowerCase()
+      : entry.root === firstRoot
+  )
+  if (!sameRoot) {
+    return pathApi.join()
+  }
+
+  const smallestLength = Math.min(...parsedPaths.map(p => p.segments.length))
   const commonParts: string[] = []
-
-  if (searchPaths[0]?.startsWith(path.sep)) {
-    commonParts.push(path.sep)
-  }
-
   for (let i = 0; i < smallestLength; i++) {
-    const first = splitPaths[0]?.[i]
-    if (first === undefined) {
+    const segment = parsedPaths[0]!.segments[i]
+    if (segment === undefined) {
       break
     }
-    if (!splitPaths.every(parts => parts[i] === first)) {
+    if (!parsedPaths.every(p => p.segments[i] === segment)) {
       break
     }
-    commonParts.push(first)
+    commonParts.push(segment)
   }
 
-  return path.join(...commonParts)
+  if (commonParts.length === 0) {
+    return firstRoot || pathApi.join()
+  }
+  return firstRoot
+    ? pathApi.join(firstRoot, ...commonParts)
+    : pathApi.join(...commonParts)
 }
 
 export async function findFilesToUpload(
