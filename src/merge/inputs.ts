@@ -15,6 +15,8 @@ export interface MergeActionInputs {
   readonly compressionLevel: number
   readonly deleteMerged: boolean
   readonly includeHiddenFiles: boolean
+  readonly artifactUrlFormat: 's3' | 'presigned'
+  readonly presignExpiresSeconds: number
   readonly s3: S3BackendConfig
   readonly scope: RunScope
 }
@@ -99,6 +101,37 @@ export function parseMergeInputs(
       9
     ) ?? 6
 
+  const envUrlFormat = env.S3_ARTIFACT_URL_FORMAT?.trim() || undefined
+  const formatRaw = (
+    getOptionalInput('artifact-url-format') ??
+    envUrlFormat ??
+    's3'
+  )
+    .trim()
+    .toLowerCase()
+  if (formatRaw !== 's3' && formatRaw !== 'presigned') {
+    throw new ArtifactValidationError(
+      `Unrecognized artifact-url-format: '${formatRaw}'. Expected s3 or presigned.`
+    )
+  }
+  const envExpires = env.S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS?.trim() || undefined
+  const expiresRaw =
+    getOptionalInput('presign-expires-seconds') ?? envExpires
+  let presignExpiresSeconds = 3600
+  if (expiresRaw !== undefined) {
+    const parsedExpires = Number(expiresRaw.trim())
+    if (
+      !Number.isInteger(parsedExpires) ||
+      parsedExpires < 1 ||
+      parsedExpires > 604800
+    ) {
+      throw new ArtifactValidationError(
+        `Invalid presign-expires-seconds: '${expiresRaw}'. Expected an integer from 1 to 604800.`
+      )
+    }
+    presignExpiresSeconds = parsedExpires
+  }
+
   const s3 = parseS3BackendConfig(
     {
       bucket: getOptionalInput('bucket'),
@@ -128,6 +161,8 @@ export function parseMergeInputs(
     compressionLevel,
     deleteMerged,
     includeHiddenFiles,
+    artifactUrlFormat: formatRaw,
+    presignExpiresSeconds,
     s3,
     scope
   }

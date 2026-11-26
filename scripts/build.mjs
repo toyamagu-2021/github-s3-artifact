@@ -5,6 +5,23 @@ import * as path from 'node:path'
 const ROOT_DIR = path.resolve(import.meta.dirname, '..')
 const DIST_DIR = path.join(ROOT_DIR, 'dist')
 
+const stubUnusedOidcPlugin = {
+  name: 'stub-unused-actions-core-oidc',
+  setup(buildApi) {
+    buildApi.onResolve({filter: /\/oidc-utils\.js$/}, args => {
+      if (args.importer.includes('@actions/core')) {
+        return {path: 'oidc-utils-stub', namespace: 's3-artifact-stub'}
+      }
+      return undefined
+    })
+    buildApi.onLoad({filter: /.*/, namespace: 's3-artifact-stub'}, () => ({
+      contents:
+        'export class OidcClient { static async getIDToken() { throw new Error("OIDC token API is not used by github-s3-artifact"); } }',
+      loader: 'js'
+    }))
+  }
+}
+
 async function bundleEntry(entryPoint, outfile) {
   await fs.mkdir(path.dirname(outfile), {recursive: true})
   await build({
@@ -16,7 +33,8 @@ async function bundleEntry(entryPoint, outfile) {
     format: 'cjs',
     sourcemap: false,
     minify: false,
-    logLevel: 'info'
+    logLevel: 'info',
+    plugins: [stubUnusedOidcPlugin]
   })
 }
 

@@ -102,7 +102,8 @@ async function extractSources(
   tmpDir: string
 ): Promise<string[]> {
   const mismatches: string[] = []
-  for (const batch of chunkArray(sources, PARALLEL_DOWNLOADS)) {
+  const concurrency = inputs.separateDirectories ? PARALLEL_DOWNLOADS : 1
+  for (const batch of chunkArray(sources, concurrency)) {
     const results = await Promise.all(
       batch.map(async artifact => {
         const destinationDir = inputs.separateDirectories
