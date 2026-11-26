@@ -114,19 +114,22 @@ export function parseUploadInputs(
   const overwrite = getBooleanWithDefault('overwrite', false)
   const includeHiddenFiles = getBooleanWithDefault('include-hidden-files', false)
   const archive = getBooleanWithDefault('archive', true)
+  const envUrlFormat = env.S3_ARTIFACT_URL_FORMAT?.trim() || undefined
   const formatRaw = (
     getOptionalInput('artifact-url-format') ??
-    env.S3_ARTIFACT_URL_FORMAT ??
+    envUrlFormat ??
     's3'
-  ).toLowerCase()
+  )
+    .trim()
+    .toLowerCase()
   if (formatRaw !== 's3' && formatRaw !== 'presigned') {
     throw new ArtifactValidationError(
       `Unrecognized artifact-url-format: '${formatRaw}'. Expected s3 or presigned.`
     )
   }
+  const envExpires = env.S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS?.trim() || undefined
   const expiresRaw =
-    getOptionalInput('presign-expires-seconds') ??
-    env.S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS
+    getOptionalInput('presign-expires-seconds') ?? envExpires
   let presignExpiresSeconds = 3600
   if (expiresRaw !== undefined) {
     const parsedExpires = Number(expiresRaw.trim())

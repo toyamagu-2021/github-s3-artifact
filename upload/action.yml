@@ -52,11 +52,9 @@ inputs:
     required: false
   artifact-url-format:
     description: 'artifact-url format. s3 (default) emits s3://<bucket>/<key>. presigned emits a signed GetObject URL. Env fallback: S3_ARTIFACT_URL_FORMAT.'
-    default: 's3'
     required: false
   presign-expires-seconds:
     description: 'Lifetime of a presigned artifact-url, from 1 to 604800 seconds. Default 3600. Env fallback: S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS.'
-    default: '3600'
     required: false
 
 outputs:

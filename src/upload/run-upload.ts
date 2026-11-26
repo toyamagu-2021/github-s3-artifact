@@ -23,10 +23,6 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 export interface UploadDeps {
   readonly store: ArtifactStore
   readonly now?: () => number
-  readonly presignGetObject?: (
-    blobKey: string,
-    expiresInSeconds: number
-  ) => Promise<string>
 }
 
 export async function runUpload(
@@ -151,12 +147,7 @@ export async function runUpload(
 
   let artifactUrl = blobResult.artifactUrl
   if (inputs.artifactUrlFormat === 'presigned') {
-    if (!deps.presignGetObject) {
-      throw new ArtifactValidationError(
-        'Presigned artifact URLs require an S3 client'
-      )
-    }
-    artifactUrl = await deps.presignGetObject(
+    artifactUrl = await deps.store.presignGetObject(
       blobResult.blobKey,
       inputs.presignExpiresSeconds
     )

@@ -80,4 +80,44 @@ describe('presigned artifact-url', () => {
     expect(expiry.exitCode).not.toBe(0)
     expect(`${expiry.stdout}\n${expiry.stderr}`).toContain('presign-expires-seconds')
   })
+
+  it('honors env fallbacks and treats empty env vars as unset', async () => {
+    await fs.writeFile(path.join(workspace, 'env.txt'), 'hello')
+    let capturedExpires: number | undefined
+    store.presignGetObject = (blobKey: string, expiresInSeconds: number) => {
+      capturedExpires = expiresInSeconds
+      return Promise.resolve(
+        `https://signed.example/${blobKey}?X-Amz-Expires=${expiresInSeconds}`
+      )
+    }
+
+    const fromEnv = await runActionBoundary({
+      cwd: workspace,
+      env: {
+        ...env(),
+        S3_ARTIFACT_URL_FORMAT: ' presigned ',
+        S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS: ' 300 '
+      },
+      inputs: {name: 'env-signed', path: 'env.txt'},
+      run: () => runUploadAction({createStore: () => store})
+    })
+    expect(fromEnv.exitCode).toBe(0)
+    expect(capturedExpires).toBe(300)
+    expect(fromEnv.outputs['artifact-url']).toMatch(
+      /^https:\/\/signed\.example\/ci\/org\/app\/runs\/500\/blobs\/\d+\?X-Amz-Expires=300$/
+    )
+
+    const emptyEnv = await runActionBoundary({
+      cwd: workspace,
+      env: {
+        ...env(),
+        S3_ARTIFACT_URL_FORMAT: '',
+        S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS: '   '
+      },
+      inputs: {name: 'empty-env', path: 'env.txt'},
+      run: () => runUploadAction({createStore: () => store})
+    })
+    expect(emptyEnv.exitCode).toBe(0)
+    expect(emptyEnv.outputs['artifact-url']).toMatch(/^s3:\/\/presign-bucket\//)
+  })
 })
