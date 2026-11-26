@@ -31,7 +31,7 @@ function usage() {
   return [
     'Usage: node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs <command> [feature] [--state path]',
     'Commands: launch, doctor, drive <feature>, cleanup',
-    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files, presigned-url'
+    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files, artifact-list-cap, presigned-url'
   ].join('\n')
 }
 
@@ -452,7 +452,7 @@ async function doctor(explicitState) {
   return state
 }
 
-async function runAction(state, which, inputs, label) {
+async function runAction(state, which, inputs, label, extraEnv = {}) {
   const outputFile = path.join(state.scratchDir, `github-output-${label}.txt`)
   await fs.writeFile(outputFile, '')
   const bundle = path.join(repoRoot, 'dist', which, 'index.js')
@@ -471,7 +471,8 @@ async function runAction(state, which, inputs, label) {
     S3_ARTIFACT_FORCE_PATH_STYLE: 'true',
     AWS_ACCESS_KEY_ID: state.accessKey,
     AWS_SECRET_ACCESS_KEY: state.secretKey,
-    ...inputEnv(inputs)
+    ...inputEnv(inputs),
+    ...extraEnv
   }
   const command = `${state.nodeBin} ${bundle}`
   const result = await new Promise(resolve => {
@@ -972,6 +973,60 @@ async function drivePresignedUrl(state) {
   }
 }
 
+async function driveArtifactListCap(state) {
+  const dir = path.join(evidenceRoot, state.id, 'artifact-list-cap')
+  await fs.mkdir(path.join(state.workspace, 'cap'), {recursive: true})
+  await fs.writeFile(path.join(state.workspace, 'cap/a.txt'), 'alpha\n')
+  await fs.writeFile(path.join(state.workspace, 'cap/b.txt'), 'beta\n')
+  const first = await runAction(state, 'upload', {name: 'side-a', path: 'cap/a.txt'}, 'cap-upload-a')
+  const second = await runAction(state, 'upload', {name: 'side-b', path: 'cap/b.txt'}, 'cap-upload-b')
+  const run = await runAction(
+    state,
+    'download',
+    {path: 'out-cap'},
+    'artifact-list-cap',
+    {ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '1'}
+  )
+  let summary
+  try {
+    assert(first.code === 0, `side-a upload exit ${first.code}\n${combinedOutput(first)}`)
+    assert(second.code === 0, `side-b upload exit ${second.code}\n${combinedOutput(second)}`)
+    assert(run.code === 0, `download exit ${run.code}\n${combinedOutput(run)}`)
+    assert(
+      combinedOutput(run).includes('limit of 1'),
+      'download did not warn about the artifact list cap'
+    )
+    const kept = await fs.readFile(path.join(state.workspace, 'out-cap/a.txt'), 'utf8')
+    assert(kept === 'alpha\n', `kept body ${JSON.stringify(kept)}`)
+    const nested = await fs.stat(path.join(state.workspace, 'out-cap/side-a')).then(() => true).catch(() => false)
+    const dropped = await fs.stat(path.join(state.workspace, 'out-cap/side-b')).then(() => true).catch(() => false)
+    assert(nested === false, 'a single listed artifact was extracted into a name directory')
+    assert(dropped === false, 'side-b was downloaded despite the cap of 1')
+    const sideBKey = manifestKey(state, 'side-b')
+    await withClient(state, async (client, api) => {
+      await headObject(client, api, state.bucket, sideBKey)
+    })
+    summary = [
+      '# artifact-list-cap',
+      '',
+      'Download listed only the first artifact when ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT=1.',
+      '',
+      `- Exit code: ${run.code}`,
+      '- Kept: out-cap/a.txt = alpha',
+      '- Absent: out-cap/side-b',
+      '- side-b manifest is still in the bucket.',
+      '- Warning includes `limit of 1`.'
+    ].join('\n')
+    await writeEvidence(dir, run, {summary})
+    console.log('drive ok artifact-list-cap')
+    console.log(`evidence: ${dir}`)
+  } catch (error) {
+    summary = `# artifact-list-cap\n\nFailed.\n\n${error instanceof Error ? error.message : String(error)}\n`
+    await writeEvidence(dir, run, {summary})
+    throw error
+  }
+}
+
 async function stopPid(pid) {
   if (!pid || !pidAlive(pid)) {
     return
@@ -1037,6 +1092,7 @@ async function main() {
       'download-by-name': driveDownloadByName,
       'reject-duplicate': driveRejectDuplicate,
       'no-files': driveNoFiles,
+      'artifact-list-cap': driveArtifactListCap,
       'presigned-url': drivePresignedUrl
     }
     const drive = drives[feature]

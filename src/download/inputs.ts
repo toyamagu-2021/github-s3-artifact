@@ -40,13 +40,19 @@ function getBooleanWithDefault(name: string, defaultValue: boolean): boolean {
   return core.getBooleanInput(name, {required: false})
 }
 
-function expandDestinationPath(rawPath: string | undefined, env: NodeJS.ProcessEnv): string {
+export function expandDestinationPath(
+  rawPath: string | undefined,
+  env: NodeJS.ProcessEnv,
+  pathApi: path.PlatformPath = path
+): string {
   const target = rawPath || env.GITHUB_WORKSPACE || process.cwd()
-  if (target === '~' || target.startsWith('~/')) {
-    const home = env.HOME || os.homedir()
-    return path.resolve(target === '~' ? home : path.join(home, target.slice(2)))
+  if (target === '~' || target.startsWith('~/') || target.startsWith('~\\')) {
+    const home = env.HOME || env.USERPROFILE || os.homedir()
+    return target.length === 1
+      ? pathApi.resolve(home)
+      : pathApi.resolve(home, target.slice(2))
   }
-  return path.resolve(target)
+  return pathApi.resolve(target)
 }
 
 export function parseDownloadInputs(

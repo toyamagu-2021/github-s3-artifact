@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {Minimatch} from 'minimatch'
 import * as path from 'node:path'
 import {verifyDigestAndMaterialize} from '../core/extract-zip.js'
+import {withBlobReadRetry} from '../shared/blob-transfer.js'
 import {
   ArtifactNotFoundError,
   DigestMismatchError
@@ -77,16 +78,19 @@ export async function runDownload(
         const destDir = extractDirectly
           ? inputs.destinationPath
           : path.join(inputs.destinationPath, manifest.name)
-        const stream = await deps.store.openBlobStream(manifest.blobKey)
-        const materialized = await verifyDigestAndMaterialize({
-          stream,
-          expectedDigest: manifest.digest,
-          destinationDir: destDir,
-          archived: manifest.archived,
-          rawFileName: manifest.rawFileName,
-          skipDecompress: inputs.skipDecompress,
-          abortOnDigestMismatch
-        })
+        const materialized = await withBlobReadRetry(
+          () => deps.store.openBlobStream(manifest.blobKey),
+          stream =>
+            verifyDigestAndMaterialize({
+              stream,
+              expectedDigest: manifest.digest,
+              destinationDir: destDir,
+              archived: manifest.archived,
+              rawFileName: manifest.rawFileName,
+              skipDecompress: inputs.skipDecompress,
+              abortOnDigestMismatch
+            })
+        )
         return {manifest, materialized}
       })
     )

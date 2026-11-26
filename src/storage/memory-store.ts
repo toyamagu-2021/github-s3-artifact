@@ -1,3 +1,4 @@
+import * as core from '@actions/core'
 import {createHash} from 'node:crypto'
 import {Readable} from 'node:stream'
 import {
@@ -15,6 +16,10 @@ import {
   parseManifestJson,
   parseSha256Digest
 } from '../shared/types.js'
+import {
+  artifactListLimitMessage,
+  getMaxArtifactListCount
+} from '../shared/runtime-config.js'
 import {
   type ArtifactStore,
   type PutBlobOptions,
@@ -155,6 +160,11 @@ export class InMemoryArtifactStore implements ArtifactStore {
       if (!isManifestExpired(manifest, nowMs)) {
         results.push(manifest)
       }
+    }
+    const maxCount = getMaxArtifactListCount()
+    if (results.length > maxCount) {
+      core.warning(artifactListLimitMessage(maxCount))
+      return Promise.resolve(results.slice(0, maxCount))
     }
     return Promise.resolve(results)
   }
