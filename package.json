@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-actions-glob.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -28,12 +29,16 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/archiver": "^8.0.0",
-    "@types/node": "^22.19.21",
+    "@types/node": "^24.19.4",
     "@types/yauzl": "^3.4.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.15.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.74.0",
-    "vitest": "^4.1.0"
+    "vitest": "^5.1.1",
+    "vite": "^8.3.8"
+  },
+  "overrides": {
+    "minimatch": "$minimatch"
   }
 }
