@@ -31,7 +31,7 @@ function usage() {
   return [
     'Usage: node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs <command> [feature] [--state path]',
     'Commands: launch, doctor, drive <feature>, cleanup',
-    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files, merge-artifacts'
+    'Features: upload-archive, upload-raw, download-by-name, reject-duplicate, no-files, artifact-list-cap, presigned-url, merge-artifacts'
   ].join('\n')
 }
 
@@ -455,7 +455,7 @@ async function doctor(explicitState) {
   return state
 }
 
-async function runAction(state, which, inputs, label) {
+async function runAction(state, which, inputs, label, extraEnv = {}) {
   const outputFile = path.join(state.scratchDir, `github-output-${label}.txt`)
   await fs.writeFile(outputFile, '')
   const bundle = path.join(repoRoot, 'dist', which, 'index.js')
@@ -474,7 +474,8 @@ async function runAction(state, which, inputs, label) {
     S3_ARTIFACT_FORCE_PATH_STYLE: 'true',
     AWS_ACCESS_KEY_ID: state.accessKey,
     AWS_SECRET_ACCESS_KEY: state.secretKey,
-    ...inputEnv(inputs)
+    ...inputEnv(inputs),
+    ...extraEnv
   }
   const command = `${state.nodeBin} ${bundle}`
   const result = await new Promise(resolve => {
@@ -909,6 +910,126 @@ async function driveNoFiles(state) {
   console.log(`evidence: ${dir}`)
 }
 
+async function drivePresignedUrl(state) {
+  const dir = path.join(evidenceRoot, state.id, 'presigned-url')
+  const filePath = path.join(state.workspace, 'dist-fixture/app.txt')
+  await fs.mkdir(path.dirname(filePath), {recursive: true})
+  await fs.writeFile(filePath, HELLO_BODY)
+  const run = await runAction(
+    state,
+    'upload',
+    {
+      name: 'presigned-one',
+      path: 'dist-fixture/app.txt',
+      'artifact-url-format': 'presigned',
+      'presign-expires-seconds': '120'
+    },
+    'presigned-url'
+  )
+  let objects
+  let summary
+  try {
+    assert(run.code === 0, `upload exit ${run.code}\n${combinedOutput(run)}`)
+    const url = run.outputs['artifact-url']
+    assert(typeof url === 'string' && url.startsWith('http'), `artifact-url ${url}`)
+    assert(!url.startsWith('s3://'), 'presigned output stayed an s3 URI')
+    const id = run.outputs['artifact-id']
+    const digest = run.outputs['artifact-digest']
+    assert(url.includes(`/blobs/${id}`), `signed URL missing blob id: ${url}`)
+    const response = await fetch(url)
+    assert(response.ok, `GET presigned URL returned HTTP ${response.status}`)
+    const downloaded = Buffer.from(await response.arrayBuffer())
+    const downloadedSha = sha256(downloaded)
+    assert(downloadedSha === digest, `downloaded sha ${downloadedSha} != ${digest}`)
+    const key = manifestKey(state, 'presigned-one')
+    objects = await withClient(state, async (client, api) => {
+      const manifestBytes = await getObjectBuffer(client, api, state.bucket, key)
+      const manifest = JSON.parse(manifestBytes.toString('utf8'))
+      const blob = await getObjectBuffer(client, api, state.bucket, manifest.blobKey)
+      assert(sha256(blob) === digest, 'stored blob sha does not match the output digest')
+      const zipPath = path.join(dir, 'blob.zip')
+      await fs.mkdir(dir, {recursive: true})
+      await fs.writeFile(zipPath, blob)
+      const zip = await readZipEntry(zipPath, 'app.txt')
+      assert(zip.body === HELLO_BODY, `zip entry ${JSON.stringify(zip.body)}`)
+      return {manifestBody: manifest, downloadedSha}
+    })
+    summary = [
+      '# presigned-url',
+      '',
+      'Upload with artifact-url-format=presigned returned a signed URL that downloaded the zip.',
+      '',
+      `- Exit code: ${run.code}`,
+      `- artifact-id: ${id}`,
+      `- artifact-digest: ${digest}`,
+      `- artifact-url scheme: ${new URL(url).protocol}`,
+      `- Downloaded sha256: ${objects.downloadedSha}`,
+      '- Zip entry `app.txt` matches the workspace file.'
+    ].join('\n')
+    await writeEvidence(dir, run, {objects, summary})
+    console.log('drive ok presigned-url')
+    console.log(`evidence: ${dir}`)
+  } catch (error) {
+    summary = `# presigned-url\n\nFailed.\n\n${error instanceof Error ? error.message : String(error)}\n`
+    await writeEvidence(dir, run, {objects, summary})
+    throw error
+  }
+}
+
+async function driveArtifactListCap(state) {
+  const dir = path.join(evidenceRoot, state.id, 'artifact-list-cap')
+  await fs.mkdir(path.join(state.workspace, 'cap'), {recursive: true})
+  await fs.writeFile(path.join(state.workspace, 'cap/a.txt'), 'alpha\n')
+  await fs.writeFile(path.join(state.workspace, 'cap/b.txt'), 'beta\n')
+  const first = await runAction(state, 'upload', {name: 'side-a', path: 'cap/a.txt'}, 'cap-upload-a')
+  const second = await runAction(state, 'upload', {name: 'side-b', path: 'cap/b.txt'}, 'cap-upload-b')
+  const run = await runAction(
+    state,
+    'download',
+    {path: 'out-cap'},
+    'artifact-list-cap',
+    {ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '1'}
+  )
+  let summary
+  try {
+    assert(first.code === 0, `side-a upload exit ${first.code}\n${combinedOutput(first)}`)
+    assert(second.code === 0, `side-b upload exit ${second.code}\n${combinedOutput(second)}`)
+    assert(run.code === 0, `download exit ${run.code}\n${combinedOutput(run)}`)
+    assert(
+      combinedOutput(run).includes('limit of 1'),
+      'download did not warn about the artifact list cap'
+    )
+    const kept = await fs.readFile(path.join(state.workspace, 'out-cap/a.txt'), 'utf8')
+    assert(kept === 'alpha\n', `kept body ${JSON.stringify(kept)}`)
+    const nested = await fs.stat(path.join(state.workspace, 'out-cap/side-a')).then(() => true).catch(() => false)
+    const dropped = await fs.stat(path.join(state.workspace, 'out-cap/side-b')).then(() => true).catch(() => false)
+    assert(nested === false, 'a single listed artifact was extracted into a name directory')
+    assert(dropped === false, 'side-b was downloaded despite the cap of 1')
+    const sideBKey = manifestKey(state, 'side-b')
+    await withClient(state, async (client, api) => {
+      await headObject(client, api, state.bucket, sideBKey)
+    })
+    summary = [
+      '# artifact-list-cap',
+      '',
+      'Download listed only the first artifact when ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT=1.',
+      '',
+      `- Exit code: ${run.code}`,
+      '- Kept: out-cap/a.txt = alpha',
+      '- Absent: out-cap/side-b',
+      '- side-b manifest is still in the bucket.',
+      '- Warning includes `limit of 1`.'
+    ].join('\n')
+    await writeEvidence(dir, run, {summary})
+    console.log('drive ok artifact-list-cap')
+    console.log(`evidence: ${dir}`)
+  } catch (error) {
+    summary = `# artifact-list-cap\n\nFailed.\n\n${error instanceof Error ? error.message : String(error)}\n`
+    await writeEvidence(dir, run, {summary})
+    throw error
+  }
+}
+
 async function stopPid(pid) {
   if (!pid || !pidAlive(pid)) {
     return
@@ -1069,6 +1190,8 @@ async function main() {
       'download-by-name': driveDownloadByName,
       'reject-duplicate': driveRejectDuplicate,
       'no-files': driveNoFiles,
+      'artifact-list-cap': driveArtifactListCap,
+      'presigned-url': drivePresignedUrl,
       'merge-artifacts': driveMergeArtifacts
     }
     const drive = drives[feature]

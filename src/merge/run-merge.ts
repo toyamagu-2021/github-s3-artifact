@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {verifyDigestAndMaterialize} from '../core/extract-zip.js'
+import {withBlobReadRetry} from '../shared/blob-transfer.js'
 import {ArtifactValidationError, DigestMismatchError} from '../shared/errors.js'
 import {type ArtifactManifestV1, parseArtifactName} from '../shared/types.js'
 import type {ArtifactStore} from '../storage/store.js'
@@ -65,6 +66,8 @@ export async function runMerge(
         overwrite: false,
         includeHiddenFiles: inputs.includeHiddenFiles,
         archive: true,
+        artifactUrlFormat: inputs.artifactUrlFormat,
+        presignExpiresSeconds: inputs.presignExpiresSeconds,
         s3: inputs.s3,
         scope: inputs.scope
       },
@@ -109,16 +112,19 @@ async function extractSources(
         const destinationDir = inputs.separateDirectories
           ? path.join(tmpDir, artifact.name)
           : tmpDir
-        const stream = await store.openBlobStream(artifact.blobKey)
-        const materialized = await verifyDigestAndMaterialize({
-          stream,
-          expectedDigest: artifact.digest,
-          destinationDir,
-          archived: artifact.archived,
-          rawFileName: artifact.rawFileName,
-          skipDecompress: false,
-          abortOnDigestMismatch: true
-        })
+        const materialized = await withBlobReadRetry(
+          () => store.openBlobStream(artifact.blobKey),
+          stream =>
+            verifyDigestAndMaterialize({
+              stream,
+              expectedDigest: artifact.digest,
+              destinationDir,
+              archived: artifact.archived,
+              rawFileName: artifact.rawFileName,
+              skipDecompress: false,
+              abortOnDigestMismatch: true
+            })
+        )
         return {name: artifact.name, mismatch: materialized.digestMismatch}
       })
     )

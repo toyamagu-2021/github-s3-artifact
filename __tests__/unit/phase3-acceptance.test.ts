@@ -646,7 +646,8 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
       listManifests: store.listManifests.bind(store),
       openBlobStream: store.openBlobStream.bind(store),
       deleteBlobBestEffort: store.deleteBlobBestEffort.bind(store),
-      deleteArtifact: store.deleteArtifact.bind(store)
+      deleteArtifact: store.deleteArtifact.bind(store),
+      presignGetObject: store.presignGetObject.bind(store)
     }
 
     const failedUpload = await runActionBoundary({

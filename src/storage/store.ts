@@ -45,6 +45,7 @@ export interface ArtifactStore {
   openBlobStream(blobKey: string): Promise<NodeJS.ReadableStream>
   deleteBlobBestEffort(blobKey: string): Promise<void>
   deleteArtifact(scope: RunScope, name: ArtifactName): Promise<void>
+  presignGetObject(blobKey: string, expiresInSeconds: number): Promise<string>
 }
 
 export const RETENTION_TAG_KEY = 's3-artifact-retention-days'

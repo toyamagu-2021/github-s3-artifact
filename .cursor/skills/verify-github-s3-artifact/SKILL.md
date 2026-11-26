@@ -87,6 +87,10 @@ Each drive writes a directory that cleanup does not delete:
 
 `no-files` writes `summary.md` plus `warn/`, `error/`, and `ignore/`. Each of those directories has `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, and `github-output.txt`. It does not write `objects.json`.
 
+`artifact-list-cap` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, and `github-output.txt`. It does not write `objects.json`. The summary records the exit code and that `out-cap/a.txt` was kept while `out-cap/side-b` was absent.
+
+`presigned-url` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, `github-output.txt`, `objects.json`, and `blob.zip`. The summary records the exit code, `artifact-id`, `artifact-digest`, the URL scheme, and the downloaded sha256. It does not record the signed query string.
+
 `merge-artifacts` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, `github-output.txt`, `objects.json`, and `blob.zip`. `objects.json` has the merged blob head, the merged manifest head, `manifestBody`, and `deletedManifests`. The summary records the exit code, `artifact-id`, `artifact-digest`, `artifact-url`, blob key, ETag, and size.
 
 Capture the action result and the stored object. An exit code by itself is not proof. A zip proof reads the stored object and checks the entry bytes. A download proof reads the extracted workspace file.

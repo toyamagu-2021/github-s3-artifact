@@ -197,4 +197,50 @@ describe('merge sub-action', () => {
     )
     expect(await store.getManifestWithMeta(scope(), parseArtifactName('empty'))).toBeNull()
   })
+
+  it('does not interleave bytes when overlapping files merge with separate-directories false', async () => {
+    const bigPayload = 'A'.repeat(256 * 1024)
+    const smallPayload = 'B'.repeat(16 * 1024)
+    await uploadFile('overlap-a', 'shared.bin', bigPayload)
+    await uploadFile('overlap-b', 'shared.bin', smallPayload)
+
+    const merged = await runActionBoundary({
+      cwd: workspace,
+      env: baseEnv(),
+      inputs: {
+        name: 'merged-overlap',
+        pattern: 'overlap-*',
+        'separate-directories': 'false'
+      },
+      run: () => runMergeAction({createStore: () => store, now: () => nowMs})
+    })
+    expect(merged.exitCode).toBe(0)
+
+    const outDir = await downloadTo('merged-overlap', 'out-overlap')
+    const content = await fs.readFile(path.join(outDir, 'shared.bin'), 'utf8')
+    expect(content === bigPayload || content === smallPayload).toBe(true)
+  })
+
+  it('supports presigned artifact-url via env fallback in merge', async () => {
+    await uploadFile('pkg-a', 'a.txt', 'alpha')
+    store.presignGetObject = (blobKey: string, expiresInSeconds: number) =>
+      Promise.resolve(
+        `https://signed.example/${blobKey}?X-Amz-Expires=${expiresInSeconds}`
+      )
+
+    const merged = await runActionBoundary({
+      cwd: workspace,
+      env: {
+        ...baseEnv(),
+        S3_ARTIFACT_URL_FORMAT: 'presigned',
+        S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS: '180'
+      },
+      inputs: {name: 'merged-signed', pattern: 'pkg-*'},
+      run: () => runMergeAction({createStore: () => store, now: () => nowMs})
+    })
+    expect(merged.exitCode).toBe(0)
+    expect(merged.outputs['artifact-url']).toMatch(
+      /^https:\/\/signed\.example\/ci\/org\/app\/runs\/500\/blobs\/\d+\?X-Amz-Expires=180$/
+    )
+  })
 })

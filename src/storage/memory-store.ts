@@ -1,6 +1,11 @@
+import * as core from '@actions/core'
 import {createHash} from 'node:crypto'
 import {Readable} from 'node:stream'
-import {ArtifactConflictError, ArtifactNotFoundError} from '../shared/errors.js'
+import {
+  ArtifactConflictError,
+  ArtifactNotFoundError,
+  ArtifactValidationError
+} from '../shared/errors.js'
 import {
   type ArtifactManifestV1,
   type ArtifactName,
@@ -11,6 +16,10 @@ import {
   parseManifestJson,
   parseSha256Digest
 } from '../shared/types.js'
+import {
+  artifactListLimitMessage,
+  getMaxArtifactListCount
+} from '../shared/runtime-config.js'
 import {
   type ArtifactStore,
   type PutBlobOptions,
@@ -152,6 +161,11 @@ export class InMemoryArtifactStore implements ArtifactStore {
         results.push(manifest)
       }
     }
+    const maxCount = getMaxArtifactListCount()
+    if (results.length > maxCount) {
+      core.warning(artifactListLimitMessage(maxCount))
+      return Promise.resolve(results.slice(0, maxCount))
+    }
     return Promise.resolve(results)
   }
 
@@ -181,5 +195,13 @@ export class InMemoryArtifactStore implements ArtifactStore {
     this.manifests.delete(key)
     this.tags.delete(key)
     await this.deleteBlobBestEffort(manifest.blobKey)
+  }
+
+  presignGetObject(_blobKey: string, _expiresInSeconds: number): Promise<string> {
+    return Promise.reject(
+      new ArtifactValidationError(
+        'Presigned artifact URLs require an S3 client'
+      )
+    )
   }
 }
