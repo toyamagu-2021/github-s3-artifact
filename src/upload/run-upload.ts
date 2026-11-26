@@ -145,11 +145,19 @@ export async function runUpload(
     await deps.store.deleteBlobBestEffort(existing.manifest.blobKey)
   }
 
+  let artifactUrl = blobResult.artifactUrl
+  if (inputs.artifactUrlFormat === 'presigned') {
+    artifactUrl = await deps.store.presignGetObject(
+      blobResult.blobKey,
+      inputs.presignExpiresSeconds
+    )
+  }
+
   const hexDigest = stripSha256Prefix(blobResult.digest)
   core.info(
     `Artifact '${artifactName}' uploaded (${blobResult.size} bytes, ID ${artifactId}, digest ${hexDigest})`
   )
   core.setOutput('artifact-id', artifactId)
   core.setOutput('artifact-digest', hexDigest)
-  core.setOutput('artifact-url', blobResult.artifactUrl)
+  core.setOutput('artifact-url', artifactUrl)
 }

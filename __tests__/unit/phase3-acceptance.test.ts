@@ -645,7 +645,8 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
       commitManifest: store.commitManifest.bind(store),
       listManifests: store.listManifests.bind(store),
       openBlobStream: store.openBlobStream.bind(store),
-      deleteBlobBestEffort: store.deleteBlobBestEffort.bind(store)
+      deleteBlobBestEffort: store.deleteBlobBestEffort.bind(store),
+      presignGetObject: store.presignGetObject.bind(store)
     }
 
     const failedUpload = await runActionBoundary({

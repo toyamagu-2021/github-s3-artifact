@@ -8,6 +8,7 @@ import {
   type PutObjectCommandInput
 } from '@aws-sdk/client-s3'
 import {Upload} from '@aws-sdk/lib-storage'
+import {getSignedUrl} from '@aws-sdk/s3-request-presigner'
 import {PassThrough, Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import * as core from '@actions/core'
@@ -456,6 +457,17 @@ export class S3ArtifactStore implements ArtifactStore {
       }
       throw error
     }
+  }
+
+  presignGetObject(blobKey: string, expiresInSeconds: number): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: blobKey
+      }),
+      {expiresIn: expiresInSeconds}
+    )
   }
 
   async deleteBlobBestEffort(blobKey: string): Promise<void> {
