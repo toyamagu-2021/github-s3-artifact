@@ -35181,12 +35181,12 @@ var init_bowser = __esm({
       describe: function describe82(ua) {
         var version = Utils.getFirstMatch(/mac os x (\d+(\.?_?\d+)+)/i, ua).replace(/[_\s]/g, ".");
         var versionName = Utils.getMacOSVersionName(version);
-        var os6 = {
+        var os7 = {
           name: OS_MAP.MacOS,
           version
         };
-        if (versionName) os6.versionName = versionName;
-        return os6;
+        if (versionName) os7.versionName = versionName;
+        return os7;
       }
     }, {
       test: [/(ipod|iphone|ipad)/i],
@@ -35217,22 +35217,22 @@ var init_bowser = __esm({
       describe: function describe85(ua) {
         var version = Utils.getFirstMatch(/android[\s/-](\d+(\.\d+)*)/i, ua);
         var versionName = Utils.getAndroidVersionName(version);
-        var os6 = {
+        var os7 = {
           name: OS_MAP.Android,
           version
         };
-        if (versionName) os6.versionName = versionName;
-        return os6;
+        if (versionName) os7.versionName = versionName;
+        return os7;
       }
     }, {
       test: [/(web|hpw)[o0]s/i],
       describe: function describe86(ua) {
         var version = Utils.getFirstMatch(/(?:web|hpw)[o0]s\/(\d+(\.\d+)*)/i, ua);
-        var os6 = {
+        var os7 = {
           name: OS_MAP.WebOS
         };
-        if (version && version.length) os6.version = version;
-        return os6;
+        if (version && version.length) os7.version = version;
+        return os7;
       }
     }, {
       test: [/blackberry|\bbb\d+/i, /rim\stablet/i],
@@ -35862,14 +35862,14 @@ var init_bowser = __esm({
       _proto.parseOS = function parseOS() {
         var _this2 = this;
         this.parsedResult.os = {};
-        var os6 = Utils.find(parser_os_default, function(_os) {
+        var os7 = Utils.find(parser_os_default, function(_os) {
           if (typeof _os.test === "function") return _os.test(_this2);
           if (Array.isArray(_os.test)) return _os.test.some(function(condition) {
             return _this2.test(condition);
           });
           throw new Error("Browser's test function is not valid");
         });
-        if (os6) this.parsedResult.os = os6.describe(this.getUA());
+        if (os7) this.parsedResult.os = os7.describe(this.getUA());
         return this.parsedResult.os;
       };
       _proto.getOSName = function getOSName(toLowerCase) {
@@ -72574,6 +72574,90 @@ function createHashStream() {
   return new HashCountTransform();
 }
 
+// src/shared/blob-transfer.ts
+var DOWNLOAD_CHUNK_TIMEOUT_MS = 30 * 1e3;
+function watchUploadStall(opts) {
+  const now = opts.now ?? (() => Date.now());
+  return new Promise((resolve3, reject) => {
+    const timer = setInterval(() => {
+      if (now() - opts.lastProgressMs() > opts.timeoutMs) {
+        clearInterval(timer);
+        reject(new Error("Upload progress stalled."));
+      }
+    }, opts.timeoutMs);
+    const onAbort = () => {
+      clearInterval(timer);
+      resolve3();
+    };
+    if (opts.signal.aborted) {
+      onAbort();
+      return;
+    }
+    opts.signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+// src/shared/runtime-config.ts
+var os5 = __toESM(require("node:os"), 1);
+var ABSOLUTE_CONCURRENCY_CAP = 300;
+function concurrencyCapForCpu(numCPUs) {
+  let concurrencyCap = 32;
+  if (numCPUs > 4) {
+    const concurrency = 16 * numCPUs;
+    concurrencyCap = concurrency > ABSOLUTE_CONCURRENCY_CAP ? ABSOLUTE_CONCURRENCY_CAP : concurrency;
+  }
+  return concurrencyCap;
+}
+function getConcurrency(env2 = process.env, numCPUs = os5.cpus().length) {
+  const concurrencyCap = concurrencyCapForCpu(numCPUs);
+  const concurrencyOverride = env2.ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY;
+  if (concurrencyOverride) {
+    const concurrency = parseInt(concurrencyOverride, 10);
+    if (Number.isNaN(concurrency) || concurrency < 1) {
+      throw new Error(
+        "Invalid value set for ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY env variable"
+      );
+    }
+    if (concurrency < concurrencyCap) {
+      info(
+        "Set concurrency based on the value set in ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY."
+      );
+      return concurrency;
+    }
+    info(
+      `ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY is higher than the cap of ${concurrencyCap} based on the number of cpus. Set it to the maximum value allowed.`
+    );
+    return concurrencyCap;
+  }
+  return 5;
+}
+function getUploadChunkTimeout(env2 = process.env) {
+  const timeoutVar = env2.ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS;
+  if (!timeoutVar) {
+    return 3e5;
+  }
+  const timeout = parseInt(timeoutVar, 10);
+  if (Number.isNaN(timeout)) {
+    throw new Error(
+      "Invalid value set for ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS env variable"
+    );
+  }
+  return timeout;
+}
+function getMaxArtifactListCount(env2 = process.env) {
+  const maxCountVar = env2.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT || "1000";
+  const maxCount = parseInt(maxCountVar, 10);
+  if (Number.isNaN(maxCount) || maxCount < 1) {
+    throw new Error(
+      "Invalid value set for ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT env variable"
+    );
+  }
+  return maxCount;
+}
+function artifactListLimitMessage(maxCount) {
+  return `Artifact list exceeded the limit of ${maxCount}. Results will be incomplete as only the first ${maxCount} artifacts will be returned`;
+}
+
 // src/shared/s3-config.ts
 function pickFirstNonEmpty(...values) {
   for (const value of values) {
@@ -72697,7 +72781,6 @@ function formatRetentionTagging(retentionDays) {
 
 // src/storage/s3-store.ts
 var PART_SIZE_BYTES = 8 * 1024 * 1024;
-var MULTIPART_QUEUE_SIZE = 4;
 var MANIFEST_READ_CONCURRENCY = 10;
 function getHttpStatus(error3) {
   if (typeof error3 !== "object" || error3 === null) {
@@ -72843,9 +72926,17 @@ var S3ArtifactStore = class {
     }
   }
   async uploadBlobSingleAttempt(blobKey, body, contentType) {
+    const queueSize = getConcurrency();
+    const timeoutMs = getUploadChunkTimeout();
+    debug(
+      `Uploading artifact with queueSize: ${queueSize}, partSize: ${PART_SIZE_BYTES}`
+    );
     const hashTransform = createHashStream();
     const pass2 = new import_node_stream13.PassThrough();
     const streamPipe = (0, import_promises3.pipeline)(body, hashTransform, pass2);
+    const uploadAbort = new AbortController();
+    const stallAbort = new AbortController();
+    let lastProgressTime = Date.now();
     const upload = new import_lib_storage.Upload({
       client: this.client,
       params: {
@@ -72855,10 +72946,29 @@ var S3ArtifactStore = class {
         ContentType: contentType
       },
       partSize: PART_SIZE_BYTES,
-      queueSize: MULTIPART_QUEUE_SIZE,
-      leavePartsOnError: false
+      queueSize,
+      leavePartsOnError: false,
+      abortController: uploadAbort
     });
-    await Promise.all([upload.done(), streamPipe]);
+    upload.on("httpUploadProgress", () => {
+      lastProgressTime = Date.now();
+    });
+    try {
+      await Promise.race([
+        Promise.all([upload.done(), streamPipe]),
+        watchUploadStall({
+          timeoutMs,
+          signal: stallAbort.signal,
+          lastProgressMs: () => lastProgressTime
+        })
+      ]);
+    } catch (error3) {
+      uploadAbort.abort();
+      stallAbort.abort();
+      throw error3;
+    } finally {
+      stallAbort.abort();
+    }
     const metrics = hashTransform.result();
     return {
       blobKey,
@@ -72921,8 +73031,10 @@ var S3ArtifactStore = class {
   }
   async listManifests(scope) {
     const prefix2 = buildManifestPrefix(this.config.keyPrefix, scope);
+    const maxCount = getMaxArtifactListCount();
     const keys = [];
     let continuationToken;
+    let hitLimit = false;
     do {
       const response = await this.client.send(
         new import_client_s3.ListObjectsV2Command({
@@ -72932,12 +73044,27 @@ var S3ArtifactStore = class {
         })
       );
       for (const item of response.Contents ?? []) {
-        if (item.Key && item.Key.endsWith(".json")) {
-          keys.push(item.Key);
+        if (!item.Key || !item.Key.endsWith(".json")) {
+          continue;
         }
+        if (keys.length >= maxCount) {
+          hitLimit = true;
+          break;
+        }
+        keys.push(item.Key);
+      }
+      if (hitLimit) {
+        break;
       }
       continuationToken = response.IsTruncated ? response.NextContinuationToken : void 0;
+      if (keys.length >= maxCount && continuationToken) {
+        hitLimit = true;
+        break;
+      }
     } while (continuationToken);
+    if (hitLimit) {
+      this.warn(artifactListLimitMessage(maxCount));
+    }
     const nowMs = this.now();
     const manifests = [];
     for (let i5 = 0; i5 < keys.length; i5 += MANIFEST_READ_CONCURRENCY) {
@@ -78518,7 +78645,7 @@ function partialMatch(patterns, itemPath) {
 }
 
 // node_modules/@actions/glob/lib/internal-pattern.js
-var os5 = __toESM(require("os"), 1);
+var os6 = __toESM(require("os"), 1);
 var path5 = __toESM(require("path"), 1);
 var import_assert3 = __toESM(require("assert"), 1);
 
@@ -78672,7 +78799,7 @@ var Pattern = class _Pattern {
     if (pattern === "." || pattern.startsWith(`.${path5.sep}`)) {
       pattern = _Pattern.globEscape(process.cwd()) + pattern.substr(1);
     } else if (pattern === "~" || pattern.startsWith(`~${path5.sep}`)) {
-      homedir3 = homedir3 || os5.homedir();
+      homedir3 = homedir3 || os6.homedir();
       (0, import_assert3.default)(homedir3, "Unable to determine HOME directory");
       (0, import_assert3.default)(hasAbsoluteRoot(homedir3), `Expected HOME directory to be a rooted path. Actual '${homedir3}'`);
       pattern = _Pattern.globEscape(homedir3) + pattern.substr(1);
