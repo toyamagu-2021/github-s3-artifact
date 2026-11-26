@@ -21,41 +21,50 @@ export function getMultiPathLCA(
   searchPaths: readonly string[],
   pathApi: path.PlatformPath = path
 ): string {
-  const splitPaths = searchPaths.map(p => pathApi.normalize(p).split(pathApi.sep))
-  const smallestLength = Math.min(...splitPaths.map(parts => parts.length))
+  if (searchPaths.length === 0) {
+    return pathApi.join()
+  }
+
+  const parsedPaths = searchPaths.map(p => {
+    const normalized = pathApi.normalize(p)
+    const {root} = pathApi.parse(normalized)
+    const remainder = normalized.slice(root.length)
+    const segments = remainder
+      ? remainder.split(pathApi.sep).filter(Boolean)
+      : []
+    return {root, segments}
+  })
+
+  const firstRoot = parsedPaths[0]!.root
+  const isWin32 = pathApi.sep === '\\'
+  const sameRoot = parsedPaths.every(entry =>
+    isWin32
+      ? entry.root.toLowerCase() === firstRoot.toLowerCase()
+      : entry.root === firstRoot
+  )
+  if (!sameRoot) {
+    return pathApi.join()
+  }
+
+  const smallestLength = Math.min(...parsedPaths.map(p => p.segments.length))
   const commonParts: string[] = []
-
-  if (searchPaths[0]?.startsWith(pathApi.sep)) {
-    commonParts.push(pathApi.sep)
-  }
-
   for (let i = 0; i < smallestLength; i++) {
-    const first = splitPaths[0]?.[i]
-    if (first === undefined) {
+    const segment = parsedPaths[0]!.segments[i]
+    if (segment === undefined) {
       break
     }
-    if (!splitPaths.every(parts => parts[i] === first)) {
+    if (!parsedPaths.every(p => p.segments[i] === segment)) {
       break
     }
-    commonParts.push(first)
+    commonParts.push(segment)
   }
 
-  return joinPreservingDriveRoot(commonParts, pathApi)
-}
-
-function joinPreservingDriveRoot(
-  commonParts: readonly string[],
-  pathApi: path.PlatformPath
-): string {
-  const first = commonParts[0]
-  if (first !== undefined && /^[A-Za-z]:$/.test(first)) {
-    const rooted = `${first}${pathApi.sep}`
-    if (commonParts.length === 1) {
-      return pathApi.normalize(rooted)
-    }
-    return pathApi.join(rooted, ...commonParts.slice(1))
+  if (commonParts.length === 0) {
+    return firstRoot || pathApi.join()
   }
-  return pathApi.join(...commonParts)
+  return firstRoot
+    ? pathApi.join(firstRoot, ...commonParts)
+    : pathApi.join(...commonParts)
 }
 
 export async function findFilesToUpload(

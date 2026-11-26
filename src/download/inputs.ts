@@ -46,9 +46,11 @@ export function expandDestinationPath(
   pathApi: path.PlatformPath = path
 ): string {
   const target = rawPath || env.GITHUB_WORKSPACE || process.cwd()
-  if (target.startsWith('~')) {
-    const home = env.HOME || os.homedir()
-    return pathApi.resolve(target.replace('~', home))
+  if (target === '~' || target.startsWith('~/') || target.startsWith('~\\')) {
+    const home = env.HOME || env.USERPROFILE || os.homedir()
+    return target.length === 1
+      ? pathApi.resolve(home)
+      : pathApi.resolve(home, target.slice(2))
   }
   return pathApi.resolve(target)
 }

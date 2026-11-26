@@ -79028,34 +79028,40 @@ function create(patterns, options) {
 var fs6 = __toESM(require("node:fs/promises"), 1);
 var path7 = __toESM(require("node:path"), 1);
 function getMultiPathLCA(searchPaths, pathApi = path7) {
-  const splitPaths = searchPaths.map((p3) => pathApi.normalize(p3).split(pathApi.sep));
-  const smallestLength = Math.min(...splitPaths.map((parts) => parts.length));
+  if (searchPaths.length === 0) {
+    return pathApi.join();
+  }
+  const parsedPaths = searchPaths.map((p3) => {
+    const normalized = pathApi.normalize(p3);
+    const { root: root5 } = pathApi.parse(normalized);
+    const remainder = normalized.slice(root5.length);
+    const segments = remainder ? remainder.split(pathApi.sep).filter(Boolean) : [];
+    return { root: root5, segments };
+  });
+  const firstRoot = parsedPaths[0].root;
+  const isWin32 = pathApi.sep === "\\";
+  const sameRoot = parsedPaths.every(
+    (entry) => isWin32 ? entry.root.toLowerCase() === firstRoot.toLowerCase() : entry.root === firstRoot
+  );
+  if (!sameRoot) {
+    return pathApi.join();
+  }
+  const smallestLength = Math.min(...parsedPaths.map((p3) => p3.segments.length));
   const commonParts = [];
-  if (searchPaths[0]?.startsWith(pathApi.sep)) {
-    commonParts.push(pathApi.sep);
-  }
   for (let i5 = 0; i5 < smallestLength; i5++) {
-    const first = splitPaths[0]?.[i5];
-    if (first === void 0) {
+    const segment = parsedPaths[0].segments[i5];
+    if (segment === void 0) {
       break;
     }
-    if (!splitPaths.every((parts) => parts[i5] === first)) {
+    if (!parsedPaths.every((p3) => p3.segments[i5] === segment)) {
       break;
     }
-    commonParts.push(first);
+    commonParts.push(segment);
   }
-  return joinPreservingDriveRoot(commonParts, pathApi);
-}
-function joinPreservingDriveRoot(commonParts, pathApi) {
-  const first = commonParts[0];
-  if (first !== void 0 && /^[A-Za-z]:$/.test(first)) {
-    const rooted = `${first}${pathApi.sep}`;
-    if (commonParts.length === 1) {
-      return pathApi.normalize(rooted);
-    }
-    return pathApi.join(rooted, ...commonParts.slice(1));
+  if (commonParts.length === 0) {
+    return firstRoot || pathApi.join();
   }
-  return pathApi.join(...commonParts);
+  return firstRoot ? pathApi.join(firstRoot, ...commonParts) : pathApi.join(...commonParts);
 }
 async function findFilesToUpload(searchPath, includeHiddenFiles = false) {
   const globber = await create(searchPath, {

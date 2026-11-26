@@ -61448,9 +61448,9 @@ function getBooleanWithDefault(name, defaultValue) {
 }
 function expandDestinationPath(rawPath, env2, pathApi = path) {
   const target = rawPath || env2.GITHUB_WORKSPACE || process.cwd();
-  if (target.startsWith("~")) {
-    const home = env2.HOME || os5.homedir();
-    return pathApi.resolve(target.replace("~", home));
+  if (target === "~" || target.startsWith("~/") || target.startsWith("~\\")) {
+    const home = env2.HOME || env2.USERPROFILE || os5.homedir();
+    return target.length === 1 ? pathApi.resolve(home) : pathApi.resolve(home, target.slice(2));
   }
   return pathApi.resolve(target);
 }
