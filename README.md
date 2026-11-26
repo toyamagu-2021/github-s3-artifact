@@ -2,7 +2,7 @@
 
 Drop-in replacement for `actions/upload-artifact@v7` and `actions/download-artifact@v8` backed by AWS S3 or S3-compatible object storage (Cloudflare R2, MinIO, Google Cloud Storage, Tigris, Ceph RGW, LocalStack).
 
-Subdirectory actions only (`upload/` and `download/`), with zero temporary zip files written to disk during upload and strict Zip-Slip and SHA-256 verification during download.
+Subdirectory actions are `upload/`, `download/`, and `merge/`. Upload writes no temporary zip on disk. Download checks Zip-Slip and SHA-256. `merge/` combines artifacts from the same run, matching `actions/upload-artifact/merge`.
 
 ## Quick Migration from GitHub Artifacts
 

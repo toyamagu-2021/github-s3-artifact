@@ -169,6 +169,25 @@ jobs:
           test "$(cat out/all/with-hidden/.env)" = "hidden-val"
           test "$(cat out/by-id/app.tar.gz)" = "raw-payload"
           test -f out/raw-zip/multi-pkg.zip
+      - id: merge_multi
+        uses: ./merge
+        with:
+          name: merged-multi
+          pattern: multi-pkg
+          separate-directories: 'false'
+      - id: dl_merged
+        uses: ./download
+        with:
+          name: merged-multi
+          path: out/merged
+      - name: Verify merged artifact
+        run: |
+          test -n "${{ steps.merge_multi.outputs.artifact-id }}"
+          echo "${{ steps.merge_multi.outputs.artifact-digest }}" | grep -Eq '^[0-9a-f]{64}$'
+          echo "${{ steps.merge_multi.outputs.artifact-url }}" | grep -Eq '^s3://actions-e2e/ci-e2e/'
+          test "$(cat out/merged/pkg-a/dist/a.txt)" = "alpha"
+          test "$(cat out/merged/pkg-b/dist/b.txt)" = "beta"
+          test ! -e out/merged/pkg-a/dist/a.map
       - name: Stop MinIO container
         if: always()
         run: docker rm -f ci-minio || true

@@ -45,6 +45,7 @@ Each feature file has an H1, one paragraph, and these H2 sections in order.
 - [No matching files](./no-files.md) covers warn, error, and ignore when the path matches nothing.
 - [Artifact list cap](./artifact-list-cap.md) returns only the first N artifacts when `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` is set.
 - [Presigned artifact URL](./presigned-url.md) returns a signed GetObject URL and the bytes at that URL match the stored zip.
+- [Merge artifacts](./merge-artifacts.md) combines two artifacts from the same run and deletes the sources.
 
 ## Not in this map
 

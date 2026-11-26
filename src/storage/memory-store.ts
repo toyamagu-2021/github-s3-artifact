@@ -185,6 +185,18 @@ export class InMemoryArtifactStore implements ArtifactStore {
     return Promise.resolve()
   }
 
+  async deleteArtifact(scope: RunScope, name: ArtifactName): Promise<void> {
+    const key = buildManifestKey(this.keyPrefix, scope, name)
+    const entry = this.manifests.get(key)
+    if (!entry) {
+      return
+    }
+    const manifest = parseManifestJson(entry.rawJson)
+    this.manifests.delete(key)
+    this.tags.delete(key)
+    await this.deleteBlobBestEffort(manifest.blobKey)
+  }
+
   presignGetObject(_blobKey: string, _expiresInSeconds: number): Promise<string> {
     return Promise.reject(
       new ArtifactValidationError(

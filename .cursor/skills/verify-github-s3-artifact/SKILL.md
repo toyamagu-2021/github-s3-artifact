@@ -9,7 +9,7 @@ description: >-
 
 # Verify github-s3-artifact
 
-Use this skill to prove the upload and download actions from a checkout of `toyamagu-2021/github-s3-artifact`. A workflow step `uses: toyamagu-2021/github-s3-artifact/upload@v0` runs `dist/upload/index.js`. `uses: toyamagu-2021/github-s3-artifact/download@v0` runs `dist/download/index.js`. This skill starts MinIO, runs those bundles with the same `INPUT_*` and `GITHUB_*` variables the runner sets, and reads the stored objects.
+Use this skill to prove the upload and download actions from a checkout of `toyamagu-2021/github-s3-artifact`. A workflow step `uses: toyamagu-2021/github-s3-artifact/upload@v0` runs `dist/upload/index.js`. `uses: toyamagu-2021/github-s3-artifact/download@v0` runs `dist/download/index.js`. `uses: toyamagu-2021/github-s3-artifact/merge@v0` runs `dist/merge/index.js`. This skill starts MinIO, runs those bundles with the same `INPUT_*` and `GITHUB_*` variables the runner sets, and reads the stored objects.
 
 Two instances can run side by side. Each launch binds its own port, data directory, and `GITHUB_RUN_ID`. Pass `--state` to every later command for that instance. Do not drive a MinIO process this run did not start.
 
@@ -52,10 +52,10 @@ Doctor exits 0 only when all of these are true.
 - `lsof` shows that pid listening on the state file's API port.
 - `GET /minio/health/live` returns HTTP 200.
 - `HeadBucket` succeeds for `verify-artifacts`.
-- `dist/upload/index.js` and `dist/download/index.js` exist and are larger than 1000 bytes.
+- `dist/upload/index.js`, `dist/download/index.js`, and `dist/merge/index.js` exist and are larger than 1000 bytes.
 - The selected Node binary runs and its major version is at least 22.
 
-Doctor prints the endpoint, Node version, MinIO pid, listener pids, GitHub run id, and the sha256 of both bundles. Run doctor before the first drive and again after any failed drive.
+Doctor prints the endpoint, Node version, MinIO pid, listener pids, GitHub run id, and the sha256 of the upload, download, and merge bundles. Run doctor before the first drive and again after any failed drive.
 
 ## Drive
 
@@ -90,6 +90,8 @@ Each drive writes a directory that cleanup does not delete:
 `artifact-list-cap` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, and `github-output.txt`. It does not write `objects.json`. The summary records the exit code and that `out-cap/a.txt` was kept while `out-cap/side-b` was absent.
 
 `presigned-url` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, `github-output.txt`, `objects.json`, and `blob.zip`. The summary records the exit code, `artifact-id`, `artifact-digest`, the URL scheme, and the downloaded sha256. It does not record the signed query string.
+
+`merge-artifacts` writes `summary.md`, `command.txt`, `stdout.txt`, `stderr.txt`, `exit-code.txt`, `github-output.txt`, `objects.json`, and `blob.zip`. `objects.json` has the merged blob head, the merged manifest head, `manifestBody`, and `deletedManifests`. The summary records the exit code, `artifact-id`, `artifact-digest`, `artifact-url`, blob key, ETag, and size.
 
 Capture the action result and the stored object. An exit code by itself is not proof. A zip proof reads the stored object and checks the entry bytes. A download proof reads the extracted workspace file.
 

@@ -152,7 +152,17 @@ async function extractZipFile(
             }
           )
 
-          await pipeline(entryStream, fsSync.createWriteStream(targetPath))
+          const stagePath = makeTempFilePath(
+            path.dirname(targetPath),
+            '.s3-artifact-entry'
+          )
+          try {
+            await pipeline(entryStream, fsSync.createWriteStream(stagePath))
+            await fs.rename(stagePath, targetPath)
+          } catch (extractErr) {
+            await fs.rm(stagePath, {force: true}).catch(() => undefined)
+            throw extractErr
+          }
           zipFile.readEntry()
         })().catch(fail)
       })

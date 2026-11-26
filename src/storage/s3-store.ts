@@ -459,6 +459,21 @@ export class S3ArtifactStore implements ArtifactStore {
     }
   }
 
+  async deleteArtifact(scope: RunScope, name: ArtifactName): Promise<void> {
+    const found = await this.getManifestWithMeta(scope, name)
+    if (!found) {
+      return
+    }
+    const manifestKey = buildManifestKey(this.config.keyPrefix, scope, name)
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.config.bucket,
+        Key: manifestKey
+      })
+    )
+    await this.deleteBlobBestEffort(found.manifest.blobKey)
+  }
+
   presignGetObject(blobKey: string, expiresInSeconds: number): Promise<string> {
     return getSignedUrl(
       this.client,

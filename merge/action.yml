@@ -1,0 +1,73 @@
+name: 'Merge Build Artifacts on S3'
+description: 'Merge one or more S3 artifacts from the same workflow run, compatible with actions/upload-artifact/merge'
+inputs:
+  name:
+    description: 'The name of the artifact that the artifacts will be merged into.'
+    required: true
+    default: 'merged-artifacts'
+  pattern:
+    description: 'A glob pattern matching the artifact names that should be merged.'
+    default: '*'
+  separate-directories:
+    description: >
+      When multiple artifacts are matched, this changes how they are merged.
+      If true, each artifact is extracted into its own named directory before re-archiving.
+      If false, the extracted files are combined in one directory.
+    default: 'false'
+  retention-days:
+    description: >
+      Duration after which the merged artifact expires in days (0 uses default retention).
+      Recorded as manifest expiresAt and S3 object tag s3-artifact-retention-days.
+  compression-level:
+    description: 'Zlib compression level from 0 (no compression) to 9 (best compression).'
+    default: '6'
+  delete-merged:
+    description: >
+      If true, the artifacts that were merged are deleted after the merged artifact is finalized.
+      The manifest object is removed first, then the blob is deleted best-effort.
+    default: 'false'
+  include-hidden-files:
+    description: 'If true, hidden files are included in the merged artifact.'
+    default: 'false'
+  bucket:
+    description: 'Target S3 bucket name (fallback: S3_ARTIFACT_BUCKET env).'
+    required: false
+  key-prefix:
+    description: 'Optional S3 key prefix (fallback: S3_ARTIFACT_KEY_PREFIX env).'
+    required: false
+  region:
+    description: 'AWS/S3 region (fallbacks: S3_ARTIFACT_REGION, AWS_REGION, AWS_DEFAULT_REGION; defaults to auto with endpoint or us-east-1).'
+    required: false
+  endpoint:
+    description: 'Custom S3-compatible endpoint URL (fallbacks: S3_ARTIFACT_ENDPOINT, AWS_ENDPOINT_URL_S3, AWS_ENDPOINT_URL).'
+    required: false
+  force-path-style:
+    description: 'Use path-style S3 addressing (fallback: S3_ARTIFACT_FORCE_PATH_STYLE env).'
+    required: false
+  access-key-id:
+    description: 'Optional AWS access key ID override (prefer OIDC / standard AWS_* env credentials).'
+    required: false
+  secret-access-key:
+    description: 'Optional AWS secret access key override (masked automatically).'
+    required: false
+  session-token:
+    description: 'Optional AWS session token override (masked automatically).'
+    required: false
+  artifact-url-format:
+    description: 'artifact-url format. s3 (default) emits s3://<bucket>/<key>. presigned emits a signed GetObject URL. Env fallback: S3_ARTIFACT_URL_FORMAT.'
+    required: false
+  presign-expires-seconds:
+    description: 'Lifetime of a presigned artifact-url, from 1 to 604800 seconds. Default 3600. Env fallback: S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS.'
+    required: false
+
+outputs:
+  artifact-id:
+    description: 'Unique 53-bit integer identifier for the merged artifact.'
+  artifact-url:
+    description: 'S3 URI (s3://<bucket>/<blobKey>) by default, or a presigned GetObject URL when artifact-url-format is presigned.'
+  artifact-digest:
+    description: 'Hex-encoded SHA-256 digest (without sha256: prefix) for the merged artifact.'
+
+runs:
+  using: 'node24'
+  main: '../dist/merge/index.js'
