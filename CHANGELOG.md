@@ -11,14 +11,14 @@
 - fix(windows): keep drive roots and expand backslash tilde paths by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/17
 
 ### Maintenance
-- Add project-local verification skill (verify-github-s3-artifact) by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/13
-- chore(deps): bump Actions, Vitest 5, and minimatch by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/14
 - docs(verify): fix feature map drift from verification skill audit by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/20
 
 ## [v0.1.1](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.0...v0.1.1) - 2026-11-26
 
 ### Maintenance
 - chore(repo): pin Actions and add Dependabot by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/7
+- Add project-local verification skill (verify-github-s3-artifact) by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/13
+- chore(deps): bump Actions, Vitest 5, and minimatch by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/14
 
 ## [v0.1.0](https://github.com/toyamagu-2021/github-s3-artifact/commits/v0.1.0) - 2026-11-25
 
