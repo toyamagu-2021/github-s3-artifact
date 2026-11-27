@@ -8,8 +8,8 @@ Presigned artifact URL keeps `s3://` as the default and, when requested, puts a 
 
 ## How to get to it (user POV)
 
-- Add `artifact-url-format: presigned` and optional `presign-expires-seconds` to `uses: toyamagu-2021/github-s3-artifact/upload@v0`.
-- From this checkout, `uses: ./upload` runs `dist/upload/index.js`.
+- Add `artifact-url-format: presigned` and optional `presign-expires-seconds` to `uses: toyamagu-2021/github-s3-artifact/upload@v0` or `uses: toyamagu-2021/github-s3-artifact/merge@v0` (or set env fallbacks `S3_ARTIFACT_URL_FORMAT` and `S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS`).
+- From this checkout, `uses: ./upload` runs `dist/upload/index.js` and `uses: ./merge` runs `dist/merge/index.js`.
 
 ## Driving it with verify-github-s3-artifact
 
@@ -26,5 +26,5 @@ Preconditions:
 ## Gotchas
 
 - The default format stays `s3://`. This drive opts in.
-- The signature expires after 120 seconds in this recipe.
-- The URL contains the credential signature. The evidence summary records the scheme, not the query string.
+- The default expiration is `3600` seconds and valid values are integers in `1..604800` (out-of-range values fail validation). This recipe sets `120` seconds.
+- The URL contains the credential signature. `summary.md` records only the scheme, not the query string, though `github-output.txt` in the evidence directory still holds the full signed URL.

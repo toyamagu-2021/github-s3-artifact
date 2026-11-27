@@ -1,6 +1,6 @@
 # github-s3-artifact verification map
 
-This directory is the maintained source for the user-facing upload and download actions. Read this index, then use the matching feature file.
+This directory is the maintained source for the user-facing upload, download, and merge actions. Read this index, then use the matching feature file.
 
 ## Baseline preconditions
 
@@ -8,7 +8,7 @@ This directory is the maintained source for the user-facing upload and download 
 - `npm ci` and `npm run build` have been run from the repo root.
 - `node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs launch` has printed `VERIFY_STATE`.
 - `doctor` prints `doctor ok` for that state.
-- The published workflow references are `uses: toyamagu-2021/github-s3-artifact/upload@v0` and `uses: toyamagu-2021/github-s3-artifact/download@v0`. Local drives run the bundles those actions point at.
+- The published workflow references are `uses: toyamagu-2021/github-s3-artifact/upload@v0`, `uses: toyamagu-2021/github-s3-artifact/download@v0`, and `uses: toyamagu-2021/github-s3-artifact/merge@v0`. Local drives run the bundles those actions point at.
 - Drive only the instance this verification run started.
 
 ## Driving conventions
@@ -61,3 +61,5 @@ These user-facing paths are not recipes yet.
 - A zip-slip archive
 - Download from another `repository` or `run-id`
 - Credential inputs and secret masking
+- Merge options `separate-directories`, `delete-merged: false`, and no-match errors
+- Runtime tuning env vars `ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY` and `ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS`

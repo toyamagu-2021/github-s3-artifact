@@ -1,6 +1,6 @@
 # Artifact list cap
 
-Artifact list cap stops a download of every artifact in the run after `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` manifests.
+Artifact list cap stops manifest listing after `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` keys, limiting multi-artifact downloads (`pattern`, `artifact-ids`, or all artifacts) and `merge` while leaving single-artifact download by `name` unaffected.
 
 ## Sub-features
 
@@ -16,7 +16,7 @@ Artifact list cap stops a download of every artifact in the run after `ACTIONS_A
 Preconditions:
 
 - Doctor prints `doctor ok` for this state.
-- This state has no manifests named `side-a` or `side-b`.
+- Use a fresh launch (or a state with no manifests named `side-a`, `side-b`, or anything sorting before `side-a`, such as `app.tar.gz`, `build-dist`, `dup-check`, `merged-sides`, or `presigned-one`).
 
 - **Place the files.** Write `cap/a.txt` as `alpha` plus a newline and `cap/b.txt` as `beta` plus a newline. The helper does this.
 - **Upload both.** The helper runs `dist/upload/index.js` for `side-a` and `side-b`. Both exit `0`.
