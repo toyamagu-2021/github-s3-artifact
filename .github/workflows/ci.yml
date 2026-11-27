@@ -175,19 +175,32 @@ jobs:
           name: merged-multi
           pattern: multi-pkg
           separate-directories: 'false'
+          delete-merged: 'true'
+          artifact-url-format: presigned
+          presign-expires-seconds: '300'
       - id: dl_merged
         uses: ./download
         with:
           name: merged-multi
           path: out/merged
-      - name: Verify merged artifact
+      - name: Verify merged artifact and presigned URL
         run: |
           test -n "${{ steps.merge_multi.outputs.artifact-id }}"
           echo "${{ steps.merge_multi.outputs.artifact-digest }}" | grep -Eq '^[0-9a-f]{64}$'
-          echo "${{ steps.merge_multi.outputs.artifact-url }}" | grep -Eq '^s3://actions-e2e/ci-e2e/'
+          echo "${{ steps.merge_multi.outputs.artifact-url }}" | grep -Eq '^http://127\.0\.0\.1:9000/actions-e2e/ci-e2e/'
+          curl -sf "${{ steps.merge_multi.outputs.artifact-url }}" -o out/presigned.zip
+          echo "${{ steps.merge_multi.outputs.artifact-digest }}  out/presigned.zip" | sha256sum -c -
           test "$(cat out/merged/pkg-a/dist/a.txt)" = "alpha"
           test "$(cat out/merged/pkg-b/dist/b.txt)" = "beta"
           test ! -e out/merged/pkg-a/dist/a.map
+      - id: dl_after_delete
+        uses: ./download
+        with:
+          path: out/after-delete
+      - name: Verify delete-merged removed source manifest
+        run: |
+          test ! -e out/after-delete/multi-pkg
+          test -e out/after-delete/merged-multi/pkg-a/dist/a.txt
       - name: Stop MinIO container
         if: always()
         run: docker rm -f ci-minio || true

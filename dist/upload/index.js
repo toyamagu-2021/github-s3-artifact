@@ -53870,6 +53870,7 @@ var S3ArtifactStore = class {
     this.config = config;
     this.warn = deps.warn ?? ((msg) => warning(msg));
     this.now = deps.now ?? (() => Date.now());
+    this.env = deps.env ?? process.env;
     this.client = deps.client ?? new import_client_s3.S3Client({
       region: config.region,
       endpoint: config.endpoint,
@@ -53884,6 +53885,7 @@ var S3ArtifactStore = class {
   client;
   warn;
   now;
+  env;
   async getManifestWithMeta(scope, name) {
     const key = buildManifestKey(this.config.keyPrefix, scope, name);
     try {
@@ -53946,8 +53948,8 @@ var S3ArtifactStore = class {
     }
   }
   async uploadBlobSingleAttempt(blobKey, body, contentType) {
-    const queueSize = getConcurrency();
-    const timeoutMs = getUploadChunkTimeout();
+    const queueSize = getConcurrency(this.env);
+    const timeoutMs = getUploadChunkTimeout(this.env);
     debug(
       `Uploading artifact with queueSize: ${queueSize}, partSize: ${PART_SIZE_BYTES}`
     );
@@ -54061,8 +54063,9 @@ var S3ArtifactStore = class {
   }
   async listManifests(scope) {
     const prefix2 = buildManifestPrefix(this.config.keyPrefix, scope);
-    const maxCount = getMaxArtifactListCount();
-    const keys = [];
+    const maxCount = getMaxArtifactListCount(this.env);
+    const nowMs = this.now();
+    const manifests = [];
     let continuationToken;
     let hitLimit = false;
     do {
@@ -54073,56 +54076,51 @@ var S3ArtifactStore = class {
           ContinuationToken: continuationToken
         })
       );
-      for (const item of response.Contents ?? []) {
-        if (!item.Key || !item.Key.endsWith(".json")) {
-          continue;
+      const pageKeys = (response.Contents ?? []).map((item) => item.Key).filter((key) => Boolean(key && key.endsWith(".json")));
+      for (let i5 = 0; i5 < pageKeys.length; ) {
+        const batchSize = Math.min(
+          MANIFEST_READ_CONCURRENCY,
+          maxCount + 1 - manifests.length
+        );
+        const batch = pageKeys.slice(i5, i5 + batchSize);
+        i5 += batch.length;
+        const loaded = await Promise.all(
+          batch.map(async (key) => {
+            try {
+              const res = await this.client.send(
+                new import_client_s3.GetObjectCommand({
+                  Bucket: this.config.bucket,
+                  Key: key
+                })
+              );
+              const rawJson = await readStreamToUtf8(res.Body);
+              return parseManifestJson(rawJson);
+            } catch (error3) {
+              if (isNotFoundError(error3)) {
+                return null;
+              }
+              throw error3;
+            }
+          })
+        );
+        for (const manifest of loaded) {
+          if (manifest && !isManifestExpired(manifest, nowMs)) {
+            manifests.push(manifest);
+          }
         }
-        if (keys.length >= maxCount) {
+        if (manifests.length > maxCount) {
           hitLimit = true;
           break;
         }
-        keys.push(item.Key);
       }
       if (hitLimit) {
         break;
       }
       continuationToken = response.IsTruncated ? response.NextContinuationToken : void 0;
-      if (keys.length >= maxCount && continuationToken) {
-        hitLimit = true;
-        break;
-      }
     } while (continuationToken);
     if (hitLimit) {
       this.warn(artifactListLimitMessage(maxCount));
-    }
-    const nowMs = this.now();
-    const manifests = [];
-    for (let i5 = 0; i5 < keys.length; i5 += MANIFEST_READ_CONCURRENCY) {
-      const batch = keys.slice(i5, i5 + MANIFEST_READ_CONCURRENCY);
-      const loaded = await Promise.all(
-        batch.map(async (key) => {
-          try {
-            const res = await this.client.send(
-              new import_client_s3.GetObjectCommand({
-                Bucket: this.config.bucket,
-                Key: key
-              })
-            );
-            const rawJson = await readStreamToUtf8(res.Body);
-            return parseManifestJson(rawJson);
-          } catch (error3) {
-            if (isNotFoundError(error3)) {
-              return null;
-            }
-            throw error3;
-          }
-        })
-      );
-      for (const manifest of loaded) {
-        if (manifest && !isManifestExpired(manifest, nowMs)) {
-          manifests.push(manifest);
-        }
-      }
+      return manifests.slice(0, maxCount);
     }
     return manifests;
   }
@@ -60462,8 +60460,9 @@ async function runUpload(inputs, deps) {
 // src/upload/action.ts
 async function runUploadAction(opts = {}) {
   try {
-    const inputs = parseUploadInputs(opts.env ?? process.env);
-    const store = opts.createStore ? opts.createStore(inputs.s3) : new S3ArtifactStore(inputs.s3);
+    const env2 = opts.env ?? process.env;
+    const inputs = parseUploadInputs(env2);
+    const store = opts.createStore ? opts.createStore(inputs.s3) : new S3ArtifactStore(inputs.s3, { env: env2, now: opts.now });
     await runUpload(inputs, { store, now: opts.now });
   } catch (error3) {
     setFailed(error3 instanceof Error ? error3.message : String(error3));

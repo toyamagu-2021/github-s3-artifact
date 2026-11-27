@@ -213,7 +213,9 @@ describe('key layout and InMemoryArtifactStore', () => {
 
   it('enforces create-only, compare-and-swap, unconditional, and expiration visibility', async () => {
     let now = Date.parse('2026-01-01T00:00:00.000Z')
-    const store = new InMemoryArtifactStore(parseBucketName('test-bucket'), '', () => now)
+    const store = new InMemoryArtifactStore(parseBucketName('test-bucket'), '', {
+      now: () => now
+    })
 
     const blob = await store.putBlobStream({
       scope,
@@ -347,5 +349,188 @@ describe('key layout and InMemoryArtifactStore', () => {
     const lastPut = calls[calls.length - 1]
     expect(lastPut?.input.Tagging).toBeUndefined()
     expect(lastPut?.input.IfNoneMatch).toBeUndefined()
+  })
+
+  it('skips expired manifests before applying ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT on S3', async () => {
+    const now = Date.parse('2026-06-01T00:00:00.000Z')
+    const validHex = 'c'.repeat(64)
+    const makeManifestJson = (id: string, name: string, expiresAt?: string) =>
+      JSON.stringify({
+        schemaVersion: 1,
+        id,
+        name,
+        repository: 'owner/repo',
+        runId: 101,
+        runAttempt: 1,
+        blobKey: `owner/repo/runs/101/blobs/${id}`,
+        size: 5,
+        digest: `sha256:${validHex}`,
+        archived: true,
+        rawFileName: `${name}.zip`,
+        contentType: 'application/zip',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        ...(expiresAt ? {expiresAt} : {})
+      })
+
+    const objects: Record<string, string> = {
+      'owner/repo/runs/101/manifests/a-expired.json': makeManifestJson(
+        '1',
+        'a-expired',
+        '2026-05-15T00:00:00.000Z'
+      ),
+      'owner/repo/runs/101/manifests/b-live.json': makeManifestJson('2', 'b-live'),
+      'owner/repo/runs/101/manifests/c-expired.json': makeManifestJson(
+        '3',
+        'c-expired',
+        '2026-05-20T00:00:00.000Z'
+      )
+    }
+    const getCalls: string[] = []
+    const warnings: string[] = []
+
+    const fakeClient = {
+      send: async (cmd: {constructor: {name: string}; input: Record<string, unknown>}) => {
+        const name = cmd.constructor.name
+        if (name === 'ListObjectsV2Command') {
+          return {
+            Contents: Object.keys(objects)
+              .sort()
+              .map(Key => ({Key})),
+            IsTruncated: false
+          }
+        }
+        if (name === 'GetObjectCommand') {
+          const key = String(cmd.input.Key)
+          getCalls.push(key)
+          const raw = objects[key]
+          if (!raw) {
+            const err = new Error('NoSuchKey')
+            err.name = 'NoSuchKey'
+            throw err
+          }
+          return {Body: {transformToString: () => Promise.resolve(raw)}}
+        }
+        throw new Error(`Unexpected S3 command: ${name}`)
+      }
+    } as unknown as S3Client
+
+    const store = new S3ArtifactStore(
+      {
+        bucket: parseBucketName('b'),
+        keyPrefix: '',
+        region: 'us-east-1',
+        forcePathStyle: true
+      },
+      {
+        client: fakeClient,
+        warn: msg => warnings.push(msg),
+        now: () => now,
+        env: {ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '1'}
+      }
+    )
+
+    const listed = await store.listManifests(scope)
+    expect(listed.map(m => m.name)).toEqual(['b-live'])
+    expect(warnings).toEqual([])
+
+    objects['owner/repo/runs/101/manifests/d-live.json'] = makeManifestJson(
+      '4',
+      'd-live'
+    )
+    objects['owner/repo/runs/101/manifests/e-live.json'] = makeManifestJson(
+      '5',
+      'e-live'
+    )
+    getCalls.length = 0
+    const capped = await store.listManifests(scope)
+    expect(capped.map(m => m.name)).toEqual(['b-live'])
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('Artifact list exceeded the limit of 1')
+    expect(getCalls).not.toContain('owner/repo/runs/101/manifests/e-live.json')
+  })
+
+  it('deletes manifest object before blob object in S3ArtifactStore.deleteArtifact and tolerates blob delete errors', async () => {
+    const validHex = 'd'.repeat(64)
+    const manifestKey = 'owner/repo/runs/101/manifests/to-delete.json'
+    const blobKey = 'owner/repo/runs/101/blobs/888'
+    const deletedKeys: string[] = []
+
+    const fakeClient = {
+      send: async (cmd: {constructor: {name: string}; input: Record<string, unknown>}) => {
+        const name = cmd.constructor.name
+        if (name === 'GetObjectCommand') {
+          return {
+            ETag: '"e1"',
+            Body: {
+              transformToString: () =>
+                Promise.resolve(
+                  JSON.stringify({
+                    schemaVersion: 1,
+                    id: '888',
+                    name: 'to-delete',
+                    repository: 'owner/repo',
+                    runId: 101,
+                    runAttempt: 1,
+                    blobKey,
+                    size: 4,
+                    digest: `sha256:${validHex}`,
+                    archived: true,
+                    rawFileName: 'to-delete.zip',
+                    contentType: 'application/zip',
+                    createdAt: '2026-01-01T00:00:00.000Z'
+                  })
+                )
+            }
+          }
+        }
+        if (name === 'DeleteObjectCommand') {
+          const key = String(cmd.input.Key)
+          deletedKeys.push(key)
+          if (key === blobKey) {
+            throw new Error('AccessDenied on DeleteObject blob')
+          }
+          return {}
+        }
+        throw new Error(`Unexpected command ${name}`)
+      }
+    } as unknown as S3Client
+
+    const store = new S3ArtifactStore(
+      {
+        bucket: parseBucketName('b'),
+        keyPrefix: '',
+        region: 'us-east-1',
+        forcePathStyle: true
+      },
+      {client: fakeClient}
+    )
+
+    await store.deleteArtifact(scope, parseArtifactName('to-delete'))
+    expect(deletedKeys).toEqual([manifestKey, blobKey])
+  })
+
+  it('signs GetObject URLs in S3ArtifactStore.presignGetObject and rejects in InMemoryArtifactStore', async () => {
+    const s3Store = new S3ArtifactStore({
+      bucket: parseBucketName('presign-b'),
+      keyPrefix: '',
+      region: 'us-east-1',
+      endpoint: 'https://s3.example.test',
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: 'AKIA_PRESIGN',
+        secretAccessKey: 'SECRET_PRESIGN'
+      }
+    })
+    const url = await s3Store.presignGetObject('owner/repo/runs/101/blobs/99', 120)
+    const parsed = new URL(url)
+    expect(parsed.origin).toBe('https://s3.example.test')
+    expect(parsed.pathname).toBe('/presign-b/owner/repo/runs/101/blobs/99')
+    expect(parsed.searchParams.get('X-Amz-Expires')).toBe('120')
+    expect(parsed.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/)
+
+    const memStore = new InMemoryArtifactStore(parseBucketName('presign-b'))
+    await expect(
+      memStore.presignGetObject('owner/repo/runs/101/blobs/99', 120)
+    ).rejects.toThrow('Presigned artifact URLs require an S3 client')
   })
 })

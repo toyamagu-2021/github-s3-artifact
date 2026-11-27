@@ -15,10 +15,11 @@ export async function runMergeAction(
   opts: MergeEntrypointOptions = {}
 ): Promise<void> {
   try {
-    const inputs = parseMergeInputs(opts.env ?? process.env)
+    const env = opts.env ?? process.env
+    const inputs = parseMergeInputs(env)
     const store = opts.createStore
       ? opts.createStore(inputs.s3)
-      : new S3ArtifactStore(inputs.s3)
+      : new S3ArtifactStore(inputs.s3, {env, now: opts.now})
     await runMerge(inputs, {store, now: opts.now})
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error))

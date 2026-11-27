@@ -23300,7 +23300,7 @@ var require_dist_cjs8 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs7();
-    var fs4 = require("node:fs/promises");
+    var fs5 = require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -23424,7 +23424,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request = createGetRequest(url);
         if (tokenFile) {
-          request.headers.Authorization = validateToken((await fs4.readFile(tokenFile)).toString());
+          request.headers.Authorization = validateToken((await fs5.readFile(tokenFile)).toString());
         } else if (token) {
           request.headers.Authorization = validateToken(token);
         }
@@ -39996,7 +39996,7 @@ var require_pend = __commonJS({
 // node_modules/yauzl/fd-slicer.js
 var require_fd_slicer = __commonJS({
   "node_modules/yauzl/fd-slicer.js"(exports2) {
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var util = require("util");
     var stream = require("stream");
     var Readable9 = stream.Readable;
@@ -40016,7 +40016,7 @@ var require_fd_slicer = __commonJS({
     FdSlicer.prototype.read = function(buffer, offset, length, position, callback) {
       var self = this;
       self.pend.go(function(cb) {
-        fs4.read(self.fd, buffer, offset, length, position, function(err, bytesRead, buffer2) {
+        fs5.read(self.fd, buffer, offset, length, position, function(err, bytesRead, buffer2) {
           cb();
           callback(err, bytesRead, buffer2);
         });
@@ -40033,7 +40033,7 @@ var require_fd_slicer = __commonJS({
       self.refCount -= 1;
       if (self.refCount < 0) throw new Error("invalid unref");
       if (self.refCount > 0) return;
-      fs4.close(self.fd, onCloseDone);
+      fs5.close(self.fd, onCloseDone);
       function onCloseDone(err) {
         if (err) {
           self.emit("error", err);
@@ -40065,7 +40065,7 @@ var require_fd_slicer = __commonJS({
       }
       self.context.pend.go(function(cb) {
         var buffer = Buffer.allocUnsafe(toRead);
-        fs4.read(self.context.fd, buffer, 0, toRead, self.pos, function(err, bytesRead) {
+        fs5.read(self.context.fd, buffer, 0, toRead, self.pos, function(err, bytesRead) {
           if (err) {
             self.destroy(err);
           } else if (bytesRead === 0) {
@@ -40425,7 +40425,7 @@ var require_crc32 = __commonJS({
 // node_modules/yauzl/index.js
 var require_yauzl = __commonJS({
   "node_modules/yauzl/index.js"(exports2) {
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var zlib2 = require("zlib");
     var fd_slicer = require_fd_slicer();
     var util = require("util");
@@ -40494,10 +40494,10 @@ var require_yauzl = __commonJS({
       if (options2.validateEntrySizes == null) options2.validateEntrySizes = true;
       if (options2.strictFileNames == null) options2.strictFileNames = false;
       if (callback == null) callback = defaultCallback;
-      fs4.open(path5, "r", function(err, fd) {
+      fs5.open(path5, "r", function(err, fd) {
         if (err) return callback(err);
         fromFd(fd, options2, function(err2, zipfile) {
-          if (err2) fs4.close(fd, defaultCallback);
+          if (err2) fs5.close(fd, defaultCallback);
           callback(err2, zipfile);
         });
       });
@@ -40514,7 +40514,7 @@ var require_yauzl = __commonJS({
       if (options2.validateEntrySizes == null) options2.validateEntrySizes = true;
       if (options2.strictFileNames == null) options2.strictFileNames = false;
       if (callback == null) callback = defaultCallback;
-      fs4.fstat(fd, function(err, stats) {
+      fs5.fstat(fd, function(err, stats) {
         if (err) return callback(err);
         var reader = new fd_slicer.FdSlicer(fd);
         fromRandomAccessReader(reader, stats.size, options2, callback);
@@ -42379,6 +42379,7 @@ var S3ArtifactStore = class {
     this.config = config;
     this.warn = deps.warn ?? ((msg) => warning(msg));
     this.now = deps.now ?? (() => Date.now());
+    this.env = deps.env ?? process.env;
     this.client = deps.client ?? new import_client_s3.S3Client({
       region: config.region,
       endpoint: config.endpoint,
@@ -42393,6 +42394,7 @@ var S3ArtifactStore = class {
   client;
   warn;
   now;
+  env;
   async getManifestWithMeta(scope, name) {
     const key = buildManifestKey(this.config.keyPrefix, scope, name);
     try {
@@ -42455,8 +42457,8 @@ var S3ArtifactStore = class {
     }
   }
   async uploadBlobSingleAttempt(blobKey, body, contentType) {
-    const queueSize = getConcurrency();
-    const timeoutMs = getUploadChunkTimeout();
+    const queueSize = getConcurrency(this.env);
+    const timeoutMs = getUploadChunkTimeout(this.env);
     debug(
       `Uploading artifact with queueSize: ${queueSize}, partSize: ${PART_SIZE_BYTES}`
     );
@@ -42570,8 +42572,9 @@ var S3ArtifactStore = class {
   }
   async listManifests(scope) {
     const prefix2 = buildManifestPrefix(this.config.keyPrefix, scope);
-    const maxCount = getMaxArtifactListCount();
-    const keys = [];
+    const maxCount = getMaxArtifactListCount(this.env);
+    const nowMs = this.now();
+    const manifests = [];
     let continuationToken;
     let hitLimit = false;
     do {
@@ -42582,56 +42585,51 @@ var S3ArtifactStore = class {
           ContinuationToken: continuationToken
         })
       );
-      for (const item of response.Contents ?? []) {
-        if (!item.Key || !item.Key.endsWith(".json")) {
-          continue;
+      const pageKeys = (response.Contents ?? []).map((item) => item.Key).filter((key) => Boolean(key && key.endsWith(".json")));
+      for (let i5 = 0; i5 < pageKeys.length; ) {
+        const batchSize = Math.min(
+          MANIFEST_READ_CONCURRENCY,
+          maxCount + 1 - manifests.length
+        );
+        const batch = pageKeys.slice(i5, i5 + batchSize);
+        i5 += batch.length;
+        const loaded = await Promise.all(
+          batch.map(async (key) => {
+            try {
+              const res = await this.client.send(
+                new import_client_s3.GetObjectCommand({
+                  Bucket: this.config.bucket,
+                  Key: key
+                })
+              );
+              const rawJson = await readStreamToUtf8(res.Body);
+              return parseManifestJson(rawJson);
+            } catch (error3) {
+              if (isNotFoundError(error3)) {
+                return null;
+              }
+              throw error3;
+            }
+          })
+        );
+        for (const manifest of loaded) {
+          if (manifest && !isManifestExpired(manifest, nowMs)) {
+            manifests.push(manifest);
+          }
         }
-        if (keys.length >= maxCount) {
+        if (manifests.length > maxCount) {
           hitLimit = true;
           break;
         }
-        keys.push(item.Key);
       }
       if (hitLimit) {
         break;
       }
       continuationToken = response.IsTruncated ? response.NextContinuationToken : void 0;
-      if (keys.length >= maxCount && continuationToken) {
-        hitLimit = true;
-        break;
-      }
     } while (continuationToken);
     if (hitLimit) {
       this.warn(artifactListLimitMessage(maxCount));
-    }
-    const nowMs = this.now();
-    const manifests = [];
-    for (let i5 = 0; i5 < keys.length; i5 += MANIFEST_READ_CONCURRENCY) {
-      const batch = keys.slice(i5, i5 + MANIFEST_READ_CONCURRENCY);
-      const loaded = await Promise.all(
-        batch.map(async (key) => {
-          try {
-            const res = await this.client.send(
-              new import_client_s3.GetObjectCommand({
-                Bucket: this.config.bucket,
-                Key: key
-              })
-            );
-            const rawJson = await readStreamToUtf8(res.Body);
-            return parseManifestJson(rawJson);
-          } catch (error3) {
-            if (isNotFoundError(error3)) {
-              return null;
-            }
-            throw error3;
-          }
-        })
-      );
-      for (const manifest of loaded) {
-        if (manifest && !isManifestExpired(manifest, nowMs)) {
-          manifests.push(manifest);
-        }
-      }
+      return manifests.slice(0, maxCount);
     }
     return manifests;
   }
@@ -45410,6 +45408,7 @@ minimatch.escape = escape;
 minimatch.unescape = unescape;
 
 // src/download/run-download.ts
+var fs4 = __toESM(require("node:fs/promises"), 1);
 var path4 = __toESM(require("node:path"), 1);
 
 // src/core/extract-zip.ts
@@ -45619,6 +45618,7 @@ async function runDownload(inputs, deps) {
       targets = allManifests;
     }
   }
+  await fs4.mkdir(inputs.destinationPath, { recursive: true });
   const extractDirectly = isSingleNamed || inputs.mergeMultiple || targets.length === 1;
   const digestMismatches = [];
   const abortOnDigestMismatch = inputs.digestMismatch === "error";
@@ -45672,8 +45672,9 @@ async function runDownload(inputs, deps) {
 // src/download/action.ts
 async function runDownloadAction(opts = {}) {
   try {
-    const inputs = parseDownloadInputs(opts.env ?? process.env);
-    const store = opts.createStore ? opts.createStore(inputs.s3) : new S3ArtifactStore(inputs.s3);
+    const env2 = opts.env ?? process.env;
+    const inputs = parseDownloadInputs(env2);
+    const store = opts.createStore ? opts.createStore(inputs.s3) : new S3ArtifactStore(inputs.s3, { env: env2 });
     await runDownload(inputs, { store });
   } catch (error3) {
     setFailed(error3 instanceof Error ? error3.message : String(error3));

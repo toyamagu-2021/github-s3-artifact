@@ -20,7 +20,7 @@ describe('merge sub-action', () => {
     store = new InMemoryArtifactStore(
       parseBucketName('merge-bucket'),
       'ci',
-      () => nowMs
+      {now: () => nowMs}
     )
   })
 
@@ -137,6 +137,20 @@ describe('merge sub-action', () => {
     expect(sourceA).not.toBeNull()
     expect(sourceB).not.toBeNull()
 
+    const manifestVisibleAtBlobDelete: Record<string, boolean> = {}
+    const origDeleteBlob = store.deleteBlobBestEffort.bind(store)
+    store.deleteBlobBestEffort = async (blobKey: string) => {
+      if (blobKey === sourceA!.manifest.blobKey) {
+        manifestVisibleAtBlobDelete['pkg-a'] =
+          (await store.getManifestWithMeta(scope(), parseArtifactName('pkg-a'))) !== null
+      }
+      if (blobKey === sourceB!.manifest.blobKey) {
+        manifestVisibleAtBlobDelete['pkg-b'] =
+          (await store.getManifestWithMeta(scope(), parseArtifactName('pkg-b'))) !== null
+      }
+      await origDeleteBlob(blobKey)
+    }
+
     const merged = await runActionBoundary({
       cwd: workspace,
       env: baseEnv(),
@@ -145,6 +159,7 @@ describe('merge sub-action', () => {
     })
     expect(merged.exitCode).toBe(0)
     expect(merged.stdout).toContain('2 artifact(s) have been deleted')
+    expect(manifestVisibleAtBlobDelete).toEqual({'pkg-a': false, 'pkg-b': false})
 
     expect(await store.getManifestWithMeta(scope(), parseArtifactName('pkg-a'))).toBeNull()
     expect(await store.getManifestWithMeta(scope(), parseArtifactName('pkg-b'))).toBeNull()

@@ -49,6 +49,7 @@ export interface S3ArtifactStoreDeps {
   readonly client?: S3Client
   readonly warn?: (message: string) => void
   readonly now?: () => number
+  readonly env?: NodeJS.ProcessEnv
 }
 
 function getHttpStatus(error: unknown): number | undefined {
@@ -138,6 +139,7 @@ export class S3ArtifactStore implements ArtifactStore {
   private readonly client: S3Client
   private readonly warn: (message: string) => void
   private readonly now: () => number
+  private readonly env: NodeJS.ProcessEnv
 
   constructor(
     private readonly config: S3BackendConfig,
@@ -145,6 +147,7 @@ export class S3ArtifactStore implements ArtifactStore {
   ) {
     this.warn = deps.warn ?? (msg => core.warning(msg))
     this.now = deps.now ?? (() => Date.now())
+    this.env = deps.env ?? process.env
     this.client =
       deps.client ??
       new S3Client({
@@ -237,8 +240,8 @@ export class S3ArtifactStore implements ArtifactStore {
     body: NodeJS.ReadableStream,
     contentType: string
   ): Promise<PutBlobResult> {
-    const queueSize = getConcurrency()
-    const timeoutMs = getUploadChunkTimeout()
+    const queueSize = getConcurrency(this.env)
+    const timeoutMs = getUploadChunkTimeout(this.env)
     core.debug(
       `Uploading artifact with queueSize: ${queueSize}, partSize: ${PART_SIZE_BYTES}`
     )
@@ -370,8 +373,9 @@ export class S3ArtifactStore implements ArtifactStore {
 
   async listManifests(scope: RunScope): Promise<ArtifactManifestV1[]> {
     const prefix = buildManifestPrefix(this.config.keyPrefix, scope)
-    const maxCount = getMaxArtifactListCount()
-    const keys: string[] = []
+    const maxCount = getMaxArtifactListCount(this.env)
+    const nowMs = this.now()
+    const manifests: ArtifactManifestV1[] = []
     let continuationToken: string | undefined
     let hitLimit = false
 
@@ -383,60 +387,59 @@ export class S3ArtifactStore implements ArtifactStore {
           ContinuationToken: continuationToken
         })
       )
-      for (const item of response.Contents ?? []) {
-        if (!item.Key || !item.Key.endsWith('.json')) {
-          continue
+      const pageKeys = (response.Contents ?? [])
+        .map(item => item.Key)
+        .filter((key): key is string => Boolean(key && key.endsWith('.json')))
+
+      for (let i = 0; i < pageKeys.length; ) {
+        const batchSize = Math.min(
+          MANIFEST_READ_CONCURRENCY,
+          maxCount + 1 - manifests.length
+        )
+        const batch = pageKeys.slice(i, i + batchSize)
+        i += batch.length
+
+        const loaded = await Promise.all(
+          batch.map(async key => {
+            try {
+              const res = await this.client.send(
+                new GetObjectCommand({
+                  Bucket: this.config.bucket,
+                  Key: key
+                })
+              )
+              const rawJson = await readStreamToUtf8(res.Body)
+              return parseManifestJson(rawJson)
+            } catch (error) {
+              if (isNotFoundError(error)) {
+                return null
+              }
+              throw error
+            }
+          })
+        )
+        for (const manifest of loaded) {
+          if (manifest && !isManifestExpired(manifest, nowMs)) {
+            manifests.push(manifest)
+          }
         }
-        if (keys.length >= maxCount) {
+        if (manifests.length > maxCount) {
           hitLimit = true
           break
         }
-        keys.push(item.Key)
       }
+
       if (hitLimit) {
         break
       }
       continuationToken = response.IsTruncated
         ? response.NextContinuationToken
         : undefined
-      if (keys.length >= maxCount && continuationToken) {
-        hitLimit = true
-        break
-      }
     } while (continuationToken)
 
     if (hitLimit) {
       this.warn(artifactListLimitMessage(maxCount))
-    }
-
-    const nowMs = this.now()
-    const manifests: ArtifactManifestV1[] = []
-    for (let i = 0; i < keys.length; i += MANIFEST_READ_CONCURRENCY) {
-      const batch = keys.slice(i, i + MANIFEST_READ_CONCURRENCY)
-      const loaded = await Promise.all(
-        batch.map(async key => {
-          try {
-            const res = await this.client.send(
-              new GetObjectCommand({
-                Bucket: this.config.bucket,
-                Key: key
-              })
-            )
-            const rawJson = await readStreamToUtf8(res.Body)
-            return parseManifestJson(rawJson)
-          } catch (error) {
-            if (isNotFoundError(error)) {
-              return null
-            }
-            throw error
-          }
-        })
-      )
-      for (const manifest of loaded) {
-        if (manifest && !isManifestExpired(manifest, nowMs)) {
-          manifests.push(manifest)
-        }
-      }
+      return manifests.slice(0, maxCount)
     }
 
     return manifests

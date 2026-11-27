@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {Minimatch} from 'minimatch'
+import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {verifyDigestAndMaterialize} from '../core/extract-zip.js'
 import {withBlobReadRetry} from '../shared/blob-transfer.js'
@@ -65,6 +66,8 @@ export async function runDownload(
       targets = allManifests
     }
   }
+
+  await fs.mkdir(inputs.destinationPath, {recursive: true})
 
   const extractDirectly =
     isSingleNamed || inputs.mergeMultiple || targets.length === 1

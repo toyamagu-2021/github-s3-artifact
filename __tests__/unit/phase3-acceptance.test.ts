@@ -70,7 +70,7 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
     store = new InMemoryArtifactStore(
       parseBucketName('ac-bucket'),
       'ci',
-      () => nowMs
+      {now: () => nowMs}
     )
   })
 
@@ -432,6 +432,17 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
     })
     expect(await fs.readFile(path.join(oneMatchDir, 'f1.txt'), 'utf8')).toBe('one')
     await expect(fs.access(path.join(oneMatchDir, 'build-one'))).rejects.toThrow()
+
+    const zeroMatchDir = path.join(workspace, 'zero-pattern-out')
+    const zeroMatch = await runActionBoundary({
+      cwd: workspace,
+      env: baseEnv(),
+      inputs: {pattern: 'does-not-match-*', path: zeroMatchDir},
+      run: () => runDownloadAction({createStore: () => store})
+    })
+    expect(zeroMatch.exitCode).toBe(0)
+    expect(zeroMatch.outputs['download-path']).toBe(zeroMatchDir)
+    expect((await fs.stat(zeroMatchDir)).isDirectory()).toBe(true)
   })
 
   it('AC-11 & AC-12: downloads by artifact-ids with warnings/mutual exclusion and supports cross-repo/cross-run', async () => {

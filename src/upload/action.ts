@@ -15,10 +15,11 @@ export async function runUploadAction(
   opts: UploadEntrypointOptions = {}
 ): Promise<void> {
   try {
-    const inputs = parseUploadInputs(opts.env ?? process.env)
+    const env = opts.env ?? process.env
+    const inputs = parseUploadInputs(env)
     const store = opts.createStore
       ? opts.createStore(inputs.s3)
-      : new S3ArtifactStore(inputs.s3)
+      : new S3ArtifactStore(inputs.s3, {env, now: opts.now})
     await runUpload(inputs, {store, now: opts.now})
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error))
