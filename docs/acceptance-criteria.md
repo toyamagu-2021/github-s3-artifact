@@ -5,12 +5,12 @@
 「公式互換」を謳う OSS では、ハッピーパスではなく **既存ワークフローが暗黙に依存している境界挙動のズレ** が最大のバグ源になる。したがって受け入れ要件は定義すべきだが、Cucumber / Gherkin のような重い BDD フレームワークや、コードと乖離する散文仕様書は作らない。
 
 代わりに以下の2つを直結させる。
-1. **外部から観測可能な振る舞いだけを書いた受け入れマトリクス（`AC-01`〜`AC-20`）**: 入力（`with` / `env`）に対し、終了コード・`GITHUB_OUTPUT`・警告ログ・展開後ファイル配置・S3上の最終状態だけを規定する。内部クラスやヘルパーの呼び出し順は一切テストしない。
-2. **Action 境界テストハーネス (`__tests__/helpers/action-harness.ts`)**: 各 `AC-XX` をそのまま Vitest のテストケース名に対応させ、`INPUT_*` / `GITHUB_*` 環境変数と一時 `GITHUB_OUTPUT` ファイルを通してエントリポイント層を駆動する。各実装フェーズでは該当する `AC-XX` の失敗（Red）を先に確認してから実装を入れる。
+1. **外部から観測可能な振る舞いだけを書いた受け入れマトリクス（`AC-01`〜`AC-24`）**: 入力（`with` / `env`）に対し、終了コード・`GITHUB_OUTPUT`・警告ログ・展開後ファイル配置・S3上の最終状態だけを規定する。内部クラスやヘルパーの呼び出し順は一切テストしない。
+2. **Action 境界テストハーネス (`__tests__/helpers/action-harness.ts`)**: 各 `AC-XX` を Vitest のテストケースに対応させ、`INPUT_*` / `GITHUB_*` 環境変数と一時 `GITHUB_OUTPUT` ファイルを通してエントリポイント層を駆動する。各実装フェーズでは該当する受け入れ基準の失敗（Red）を先に確認してから実装を入れる。
 
 ---
 
-## 2. 受け入れ基準一覧（`AC-01`〜`AC-20`）
+## 2. 受け入れ基準一覧（`AC-01`〜`AC-24`）
 
 ### A. Upload: パス解決・アーカイブ構造・出力互換
 
@@ -55,4 +55,14 @@
 | `AC-17` | 環境変数フォールバックと優先順位・Secretマスク | `S3_ARTIFACT_*` / `AWS_*` 環境変数のみ指定、または `with:` との併用 | ステップの `with:` に S3 項目を書かなくても環境変数だけで動作し、両方指定時は `with:` が優先される。`secret-access-key` / `session-token` 入力時はマスク処理が呼ばれる。 |
 | `AC-18` | `retention-days` 期限判定とタグ非対応S3耐性 | `retention-days: 7` 指定、および `PutObjectTagging` が `AccessDenied` / `NotImplemented` を返すモック/互換ストア | Manifest の `expiresAt` が設定され期限超過後は `download` 対象から除外される。タグ付与失敗時は警告ログのみ出してアップロードは成功する。 |
 | `AC-19` | アップロード途中失敗時の不可視性 | Blob ストリーム途中でエラー中断が発生 | Manifest が書き込まれないため、後続の `download` で壊れたアーティファクトが見えたり取得されたりしない。 |
-| `AC-20` | 実 GitHub Actions ワークフロー E2E | `.github/workflows/ci.yml` で MinIO サービスコンテナに対し `uses: ./upload` → `uses: ./download` を実行 | バンドル済み `dist/` が最新ソースと一致した状態で、実ランナー上のステップ間ファイル受け渡しが完全に成功する。 |
+| `AC-20` | 実 GitHub Actions ワークフロー E2E | `.github/workflows/ci.yml` で MinIO サービスコンテナに対し `uses: ./upload` → `uses: ./download` → `uses: ./merge` を実行 | バンドル済み `dist/` が最新ソースと一致した状態で、実ランナー上のステップ間ファイル受け渡し・統合・署名URL検証が完全に成功する。 |
+
+### F. Merge・ランタイム制御・Windows パス・署名付き URL（`v0.1.2` 追加分）
+
+| ID | シナリオ | 入力条件 | 期待される観測結果 |
+|---|---|---|---|
+| `AC-21` | `merge` サブアクションによる統合と元データ削除 | 同一 Run 内の複数アーティファクトに対し `pattern`、`separate-directories: false \| true`、`delete-merged: false \| true` を指定 | 一致アーティファクトが単一 ZIP に統合されて `artifact-id` / `artifact-digest` / `artifact-url` が出力される。`delete-merged: true` 時は統合コミット完了後に元 Manifest が先に削除され、続けて Blob がベストエフォート削除される。未一致時は失敗終了する。 |
+| `AC-22` | `@actions/artifact` ランタイム環境変数と一覧上限 | `ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY`、`ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS`、`ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` を設定、および一時ストリーム失敗 | CPU 数に応じた並列数上限・ストール中断・最大5回ダウンロードリトライが機能する。`ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` は期限切れ Manifest を除外した有効アーティファクト数に対して適用され、超過時のみ警告を出して先頭 N 件を返す。 |
+| `AC-23` | Windows ドライブルート LCA と `~\` 展開 | `C:\work\pkg-a\dist` と `C:\work\pkg-b\dist`（または別ディレクトリ）、および `path: ~\out` | ドライブルートの区切り文字を失わず `C:\work`（または `C:\`）が LCA になり、`~\out` もホームディレクトリ配下へ展開される。Ubuntu / Windows / macOS の 3OS CI で単体テストが通過する。 |
+| `AC-24` | 任意指定の署名付き `artifact-url` | `upload` / `merge` で `artifact-url-format: s3 \| presigned`（`S3_ARTIFACT_URL_FORMAT`）と `presign-expires-seconds`（`1`〜`604800`）を指定 | デフォルトは `s3://` URI を維持し、`presigned` 指定時は該当 Blob の署名付き `GetObject` URL を出力する。不正フォーマットや範囲外秒数は境界で失敗終了する。 |
+
