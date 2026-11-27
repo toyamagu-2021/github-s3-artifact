@@ -13,6 +13,9 @@ changelog:
         - chore
         - ci
         - docs
+    - title: Other Changes
+      labels:
+        - '*'
   exclude:
     labels:
       - ignore-for-release
