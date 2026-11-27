@@ -42035,7 +42035,7 @@ function defaultSleep(ms) {
   });
 }
 function isRetryableBlobError(error3) {
-  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError || error3 instanceof DigestMismatchError);
+  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError);
 }
 function withChunkInactivityTimeout(source, timeoutMs) {
   const pass2 = new import_node_stream13.Transform({

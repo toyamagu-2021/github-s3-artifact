@@ -3,7 +3,6 @@ import {type Readable, Transform} from 'node:stream'
 import {
   ArtifactNotFoundError,
   ArtifactValidationError,
-  DigestMismatchError,
   ZipSlipError
 } from './errors.js'
 
@@ -28,8 +27,7 @@ export function isRetryableBlobError(error: unknown): boolean {
   return !(
     error instanceof ZipSlipError ||
     error instanceof ArtifactValidationError ||
-    error instanceof ArtifactNotFoundError ||
-    error instanceof DigestMismatchError
+    error instanceof ArtifactNotFoundError
   )
 }
 

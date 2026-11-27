@@ -59477,8 +59477,7 @@ async function createZipArchiveStream(entries, compressionLevel = DEFAULT_COMPRE
   });
   archive.pipe(output);
   for (const entry of entries) {
-    const lstat6 = await fs4.lstat(entry.sourcePath);
-    const resolvedSource = lstat6.isSymbolicLink() ? await fs4.realpath(entry.sourcePath) : entry.sourcePath;
+    const resolvedSource = entry.isSymbolicLink ? await fs4.realpath(entry.sourcePath) : entry.sourcePath;
     archive.file(resolvedSource, { name: entry.archivePath });
   }
   void archive.finalize();
@@ -60325,8 +60324,8 @@ async function buildZipSpecificationAsync(filesToUpload, rootDirectory) {
   const entries = [];
   for (const file of filesToUpload) {
     const resolvedFile = path7.resolve(path7.normalize(file));
-    const lstat6 = await fs6.lstat(resolvedFile);
-    if (lstat6.isDirectory()) {
+    const lstat5 = await fs6.lstat(resolvedFile);
+    if (lstat5.isDirectory()) {
       continue;
     }
     const rel = path7.relative(resolvedRoot, resolvedFile);
@@ -60340,7 +60339,7 @@ async function buildZipSpecificationAsync(filesToUpload, rootDirectory) {
     entries.push({
       sourcePath: resolvedFile,
       archivePath: posixRel,
-      isSymbolicLink: lstat6.isSymbolicLink()
+      isSymbolicLink: lstat5.isSymbolicLink()
     });
   }
   return entries;

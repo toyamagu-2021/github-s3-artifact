@@ -54963,7 +54963,7 @@ function defaultSleep(ms) {
   });
 }
 function isRetryableBlobError(error3) {
-  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError || error3 instanceof DigestMismatchError);
+  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError);
 }
 function withChunkInactivityTimeout(source, timeoutMs) {
   const pass2 = new import_node_stream13.Transform({
@@ -61075,8 +61075,7 @@ async function createZipArchiveStream(entries, compressionLevel = DEFAULT_COMPRE
   });
   archive.pipe(output);
   for (const entry of entries) {
-    const lstat6 = await fs5.lstat(entry.sourcePath);
-    const resolvedSource = lstat6.isSymbolicLink() ? await fs5.realpath(entry.sourcePath) : entry.sourcePath;
+    const resolvedSource = entry.isSymbolicLink ? await fs5.realpath(entry.sourcePath) : entry.sourcePath;
     archive.file(resolvedSource, { name: entry.archivePath });
   }
   void archive.finalize();
@@ -61923,8 +61922,8 @@ async function buildZipSpecificationAsync(filesToUpload, rootDirectory) {
   const entries = [];
   for (const file of filesToUpload) {
     const resolvedFile = path8.resolve(path8.normalize(file));
-    const lstat6 = await fs7.lstat(resolvedFile);
-    if (lstat6.isDirectory()) {
+    const lstat5 = await fs7.lstat(resolvedFile);
+    if (lstat5.isDirectory()) {
       continue;
     }
     const rel = path8.relative(resolvedRoot, resolvedFile);
@@ -61938,7 +61937,7 @@ async function buildZipSpecificationAsync(filesToUpload, rootDirectory) {
     entries.push({
       sourcePath: resolvedFile,
       archivePath: posixRel,
-      isSymbolicLink: lstat6.isSymbolicLink()
+      isSymbolicLink: lstat5.isSymbolicLink()
     });
   }
   return entries;

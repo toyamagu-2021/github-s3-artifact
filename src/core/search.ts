@@ -160,30 +160,3 @@ export async function buildZipSpecificationAsync(
   }
   return entries
 }
-
-export function buildZipSpecification(
-  filesToUpload: readonly string[],
-  rootDirectory: string
-): ZipFileEntrySpec[] {
-  const resolvedRoot = path.resolve(path.normalize(rootDirectory))
-  const entries: ZipFileEntrySpec[] = []
-
-  for (const file of filesToUpload) {
-    const resolvedFile = path.resolve(path.normalize(file))
-    const rel = path.relative(resolvedRoot, resolvedFile)
-    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
-      throw new ArtifactValidationError(
-        `File '${resolvedFile}' is outside rootDirectory '${resolvedRoot}'.`
-      )
-    }
-    const posixRel = rel.split(path.sep).join('/')
-    validateRelativeArchivePath(posixRel)
-    entries.push({
-      sourcePath: resolvedFile,
-      archivePath: posixRel,
-      isSymbolicLink: false
-    })
-  }
-
-  return entries
-}

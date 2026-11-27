@@ -35,8 +35,7 @@ export async function createZipArchiveStream(
   archive.pipe(output)
 
   for (const entry of entries) {
-    const lstat = await fs.lstat(entry.sourcePath)
-    const resolvedSource = lstat.isSymbolicLink()
+    const resolvedSource = entry.isSymbolicLink
       ? await fs.realpath(entry.sourcePath)
       : entry.sourcePath
     archive.file(resolvedSource, {name: entry.archivePath})

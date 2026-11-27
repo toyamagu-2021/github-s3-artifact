@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {Readable} from 'node:stream'
-import {findFilesToUpload, buildZipSpecification} from '../../src/core/search.js'
+import {findFilesToUpload, buildZipSpecificationAsync} from '../../src/core/search.js'
 import {createZipArchiveStream} from '../../src/core/archive-zip.js'
 import {
   extractArchiveStream,
@@ -107,7 +107,7 @@ describe('Phase 2: search, zip creation, extraction, Zip-Slip, and digest verifi
       const single = await findFilesToUpload(path.join(tmp, 'a/b/hello.txt'), false)
       expect(single.filesToUpload).toEqual([path.join(tmp, 'a/b/hello.txt')])
       expect(single.rootDirectory).toBe(path.join(tmp, 'a/b'))
-      const singleSpec = buildZipSpecification(single.filesToUpload, single.rootDirectory)
+      const singleSpec = await buildZipSpecificationAsync(single.filesToUpload, single.rootDirectory)
       expect(singleSpec.map(s => s.archivePath)).toEqual(['hello.txt'])
 
       const multiPattern = [
@@ -117,13 +117,14 @@ describe('Phase 2: search, zip creation, extraction, Zip-Slip, and digest verifi
       ].join('\n')
       const multi = await findFilesToUpload(multiPattern, false)
       expect(multi.rootDirectory).toBe(tmp)
-      const multiSpec = buildZipSpecification(multi.filesToUpload, multi.rootDirectory)
+      const multiSpec = await buildZipSpecificationAsync(multi.filesToUpload, multi.rootDirectory)
       const relPaths = multiSpec.map(s => s.archivePath).sort()
       expect(relPaths).toEqual([
         'pkg-a/dist/link.txt',
         'pkg-a/dist/main.js',
         'pkg-b/dist/sub.js'
       ])
+      expect(multiSpec.find(s => s.archivePath === 'pkg-a/dist/link.txt')?.isSymbolicLink).toBe(true)
 
       const noHidden = await findFilesToUpload(path.join(tmp, '**/*'), false)
       expect(noHidden.filesToUpload.some(f => f.includes('.env'))).toBe(false)
@@ -165,7 +166,7 @@ describe('Phase 2: search, zip creation, extraction, Zip-Slip, and digest verifi
     try {
       const badFile = path.join(tmp, 'bad:name.txt')
       await fs.writeFile(badFile, 'x')
-      expect(() => buildZipSpecification([badFile], tmp)).toThrow(
+      await expect(buildZipSpecificationAsync([badFile], tmp)).rejects.toBeInstanceOf(
         ArtifactValidationError
       )
     } finally {
