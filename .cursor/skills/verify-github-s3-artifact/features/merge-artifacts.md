@@ -17,11 +17,11 @@ Merge artifacts downloads two artifacts from the same run, stores one new zip, d
 Preconditions:
 
 - Doctor prints `doctor ok` for this state.
-- This state has no manifests named `side-left`, `side-right`, or `merged-sides`.
+- This state has no manifests matching `side-*` or named `merged-sides`.
 
 - **Place the files.** Write `merge-src/left.txt` containing `left-body` and a trailing newline, and `merge-src/right.txt` containing `right-body` and a trailing newline. The helper does this inside the scratch workspace.
 - **Upload both.** The helper runs `dist/upload/index.js` twice, with `INPUT_NAME=side-left` and `INPUT_NAME=side-right`. Both exit `0`.
-- **Merge.** Run `node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs drive merge-artifacts`. The bundle is `dist/merge/index.js` with `INPUT_NAME=merged-sides`, `INPUT_PATTERN=side-*`, and `INPUT_DELETE_MERGED=true`. Exit code is `0`. Stdout contains `2 artifact(s) have been deleted`.
+- **Merge.** Run `node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs drive merge-artifacts`. The bundle is `dist/merge/index.js` with `INPUT_NAME=merged-sides`, `INPUT_PATTERN=side-*`, and `INPUT_DELETE-MERGED=true`. Exit code is `0`. Stdout contains `2 artifact(s) have been deleted`.
 - **Read the outputs.** `github-output.txt` has `artifact-id` as a decimal integer, `artifact-digest` as 64 hex characters, and `artifact-url` as `s3://verify-artifacts/verify/verify-org/verify-repo/runs/<run-id>/blobs/<artifact-id>`.
 - **Read the merged object.** The manifest key is `verify/verify-org/verify-repo/runs/<run-id>/manifests/merged-sides.json`. Its `digest` is `sha256:` plus the output digest. The blob sha256 equals the output digest. The zip contains `left.txt` and `right.txt` with those workspace bytes.
 - **Read the deletions.** HeadObject for the `side-left` and `side-right` manifest keys returns not found. `objects.json` lists those keys in `deletedManifests`.
@@ -31,4 +31,4 @@ Preconditions:
 - `pattern` matches artifact names in the current run, not file paths.
 - `delete-merged` removes the manifest first. A reader that lists manifests no longer sees the source after that delete.
 - A single-file upload stores the basename. The merged zip contains `left.txt`, not `merge-src/left.txt`.
-- Run this drive once per launch. The source names and `merged-sides` stay reserved on that run id.
+- Run this drive once per launch. `merged-sides` stays reserved on that run id (the source manifests `side-left` and `side-right` are deleted by `delete-merged: true`).

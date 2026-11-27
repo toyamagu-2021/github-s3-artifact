@@ -29,7 +29,7 @@ The helper starts MinIO `RELEASE.2025-09-07T16-13-09Z` with root user `minioadmi
 
 This is not the container in `.github/workflows/ci.yml`. That job runs `cgr.dev/chainguard/minio:latest` and publishes port 9000 with Docker. This helper does not start Docker, does not pull that image, and does not run `docker stop`. A binary run leaves those steps unverified.
 
-`upload/action.yml` and `download/action.yml` declare `using: node24`. The helper picks the Node binary for the bundle in this order.
+`upload/action.yml`, `download/action.yml`, and `merge/action.yml` declare `using: node24`. The helper picks the Node binary for the bundle in this order.
 
 1. Use `VERIFY_NODE` unchanged when it is set.
 2. Use the current Node binary when its major version is 24 or higher.
