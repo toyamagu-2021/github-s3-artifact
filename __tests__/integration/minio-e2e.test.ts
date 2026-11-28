@@ -1,6 +1,7 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {CreateBucketCommand, GetObjectTaggingCommand, HeadBucketCommand, S3Client} from '@aws-sdk/client-s3'
 import {execFileSync, spawn, spawnSync} from 'node:child_process'
+import {createHash} from 'node:crypto'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -120,11 +121,12 @@ describe('Live MinIO S3 Docker E2E with bundled dist/upload & dist/download', ()
     }
   })
 
-  it('executes standalone dist/upload/index.js and dist/download/index.js against live MinIO without node_modules', async () => {
+  it('executes standalone dist/upload, dist/download, and dist/merge against live MinIO without node_modules', async () => {
     const isolatedDist = path.join(workspace, 'isolated-action/dist')
     await fs.cp(path.join(repoRoot, 'dist'), isolatedDist, {recursive: true})
     const uploadBundle = path.join(isolatedDist, 'upload/index.js')
     const downloadBundle = path.join(isolatedDist, 'download/index.js')
+    const mergeBundle = path.join(isolatedDist, 'merge/index.js')
     const outFile = path.join(workspace, 'github_output.txt')
     await fs.writeFile(outFile, '', 'utf8')
 
@@ -254,5 +256,103 @@ describe('Live MinIO S3 Docker E2E with bundled dist/upload & dist/download', ()
     expect(await fs.readFile(path.join(dlByIdDest, 'raw.tar.gz'), 'utf8')).toBe(
       'raw-archive-content'
     )
+
+    const cappedDest = path.join(workspace, 'downloaded-capped')
+    const dlCapped = await runChildBundle(
+      downloadBundle,
+      {
+        ...commonEnv,
+        ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '1',
+        INPUT_PATH: cappedDest
+      },
+      workspace
+    )
+    expect(dlCapped.code, dlCapped.stdout + dlCapped.stderr).toBe(0)
+    expect(dlCapped.stdout).toContain('Artifact list exceeded the limit of 1')
+    expect(await fs.readFile(path.join(cappedDest, 'hello.txt'), 'utf8')).toBe(
+      'minio-e2e-attempt2'
+    )
+    await expect(fs.access(path.join(cappedDest, 'raw.tar.gz'))).rejects.toThrow()
+
+    await fs.writeFile(path.join(workspace, 'part-a.txt'), 'left-side')
+    await fs.writeFile(path.join(workspace, 'part-b.txt'), 'right-side')
+    expect(
+      (
+        await runChildBundle(
+          uploadBundle,
+          {
+            ...commonEnv,
+            INPUT_NAME: 'merge-left',
+            INPUT_PATH: 'part-a.txt'
+          },
+          workspace
+        )
+      ).code
+    ).toBe(0)
+    expect(
+      (
+        await runChildBundle(
+          uploadBundle,
+          {
+            ...commonEnv,
+            INPUT_NAME: 'merge-right',
+            INPUT_PATH: 'part-b.txt'
+          },
+          workspace
+        )
+      ).code
+    ).toBe(0)
+
+    await fs.writeFile(outFile, '', 'utf8')
+    const mergeRes = await runChildBundle(
+      mergeBundle,
+      {
+        ...commonEnv,
+        INPUT_NAME: 'merged-parts',
+        INPUT_PATTERN: 'merge-*',
+        'INPUT_SEPARATE-DIRECTORIES': 'true',
+        'INPUT_DELETE-MERGED': 'true',
+        'INPUT_ARTIFACT-URL-FORMAT': 'presigned',
+        'INPUT_PRESIGN-EXPIRES-SECONDS': '300'
+      },
+      workspace
+    )
+    expect(mergeRes.code, mergeRes.stdout + mergeRes.stderr).toBe(0)
+    const mergeOut = parseGitHubOutputFile(await fs.readFile(outFile, 'utf8'))
+    expect(mergeOut['artifact-url']).toMatch(/^http:\/\/127\.0\.0\.1:\d+\//)
+    const signedRes = await fetch(mergeOut['artifact-url']!)
+    expect(signedRes.ok).toBe(true)
+    const signedBytes = Buffer.from(await signedRes.arrayBuffer())
+    const signedDigest = createHash('sha256').update(signedBytes).digest('hex')
+    expect(signedDigest).toBe(mergeOut['artifact-digest'])
+
+    const deletedSourceDl = await runChildBundle(
+      downloadBundle,
+      {
+        ...commonEnv,
+        INPUT_NAME: 'merge-left',
+        INPUT_PATH: path.join(workspace, 'deleted-left')
+      },
+      workspace
+    )
+    expect(deletedSourceDl.code).toBe(1)
+
+    const mergedDlDest = path.join(workspace, 'downloaded-merged')
+    const mergedDl = await runChildBundle(
+      downloadBundle,
+      {
+        ...commonEnv,
+        INPUT_NAME: 'merged-parts',
+        INPUT_PATH: mergedDlDest
+      },
+      workspace
+    )
+    expect(mergedDl.code, mergedDl.stdout + mergedDl.stderr).toBe(0)
+    expect(
+      await fs.readFile(path.join(mergedDlDest, 'merge-left/part-a.txt'), 'utf8')
+    ).toBe('left-side')
+    expect(
+      await fs.readFile(path.join(mergedDlDest, 'merge-right/part-b.txt'), 'utf8')
+    ).toBe('right-side')
   }, 60_000)
 })

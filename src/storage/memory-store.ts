@@ -35,17 +35,30 @@ interface StoredManifestEntry {
   etag: string
 }
 
+export interface InMemoryArtifactStoreDeps {
+  readonly now?: () => number
+  readonly warn?: (message: string) => void
+  readonly env?: NodeJS.ProcessEnv
+}
+
 export class InMemoryArtifactStore implements ArtifactStore {
   private readonly blobs = new Map<string, Buffer>()
   private readonly manifests = new Map<string, StoredManifestEntry>()
   private readonly tags = new Map<string, string>()
+  private readonly now: () => number
+  private readonly warn: (message: string) => void
+  private readonly env: NodeJS.ProcessEnv
   private etagSeq = 0
 
   constructor(
     private readonly bucket: BucketName,
     private readonly keyPrefix = '',
-    private readonly now: () => number = () => Date.now()
-  ) {}
+    deps: InMemoryArtifactStoreDeps = {}
+  ) {
+    this.now = deps.now ?? (() => Date.now())
+    this.warn = deps.warn ?? (msg => core.warning(msg))
+    this.env = deps.env ?? process.env
+  }
 
   getBlobTags(blobKey: string): string | undefined {
     return this.tags.get(blobKey)
@@ -152,18 +165,20 @@ export class InMemoryArtifactStore implements ArtifactStore {
     const prefix = buildManifestPrefix(this.keyPrefix, scope)
     const results: ArtifactManifestV1[] = []
     const nowMs = this.now()
-    for (const [key, entry] of this.manifests.entries()) {
+    const sortedKeys = Array.from(this.manifests.keys()).sort()
+    for (const key of sortedKeys) {
       if (!key.startsWith(prefix) || !key.endsWith('.json')) {
         continue
       }
+      const entry = this.manifests.get(key)!
       const manifest = parseManifestJson(entry.rawJson)
       if (!isManifestExpired(manifest, nowMs)) {
         results.push(manifest)
       }
     }
-    const maxCount = getMaxArtifactListCount()
+    const maxCount = getMaxArtifactListCount(this.env)
     if (results.length > maxCount) {
-      core.warning(artifactListLimitMessage(maxCount))
+      this.warn(artifactListLimitMessage(maxCount))
       return Promise.resolve(results.slice(0, maxCount))
     }
     return Promise.resolve(results)

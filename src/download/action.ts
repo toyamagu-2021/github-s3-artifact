@@ -14,10 +14,11 @@ export async function runDownloadAction(
   opts: DownloadEntrypointOptions = {}
 ): Promise<void> {
   try {
-    const inputs = parseDownloadInputs(opts.env ?? process.env)
+    const env = opts.env ?? process.env
+    const inputs = parseDownloadInputs(env)
     const store = opts.createStore
       ? opts.createStore(inputs.s3)
-      : new S3ArtifactStore(inputs.s3)
+      : new S3ArtifactStore(inputs.s3, {env})
     await runDownload(inputs, {store})
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error))

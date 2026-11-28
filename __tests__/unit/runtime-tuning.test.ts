@@ -3,8 +3,9 @@ import {Readable} from 'node:stream'
 import * as os from 'node:os'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {ArtifactNotFoundError} from '../../src/shared/errors.js'
+import {ArtifactNotFoundError, DigestMismatchError} from '../../src/shared/errors.js'
 import {
+  isRetryableBlobError,
   withBlobReadRetry,
   watchUploadStall,
   withChunkInactivityTimeout
@@ -152,15 +153,19 @@ describe('artifact runtime tuning', () => {
         }
       )
     ).rejects.toThrow('missing')
+
+    expect(isRetryableBlobError(new DigestMismatchError(['art']))).toBe(false)
   })
 
-  it('returns only the first N manifests when the list cap is set', async () => {
-    const previous = process.env.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT
-    process.env.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT = '1'
+  it('returns only the first N live manifests when the list cap is set', async () => {
+    const warnings: string[] = []
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 's3-art-cap-'))
-    const store = new InMemoryArtifactStore(parseBucketName('cap-bucket'), 'ci')
+    const store = new InMemoryArtifactStore(parseBucketName('cap-bucket'), 'ci', {
+      env: {ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '1'},
+      warn: msg => warnings.push(msg)
+    })
     try {
-      for (const name of ['side-a', 'side-b']) {
+      for (const name of ['side-b', 'side-a']) {
         const file = path.join(workspace, `${name}.txt`)
         await fs.writeFile(file, name)
         const up = await runActionBoundary({
@@ -183,12 +188,10 @@ describe('artifact runtime tuning', () => {
         parseRunScope({repository: 'org/app', runId: '500', runAttempt: '1'})
       )
       expect(listed.map(item => item.name)).toEqual(['side-a'])
+      expect(warnings).toEqual([
+        'Artifact list exceeded the limit of 1. Results will be incomplete as only the first 1 artifacts will be returned'
+      ])
     } finally {
-      if (previous === undefined) {
-        delete process.env.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT
-      } else {
-        process.env.ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT = previous
-      }
       await fs.rm(workspace, {recursive: true, force: true})
     }
   })

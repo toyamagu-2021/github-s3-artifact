@@ -1,6 +1,6 @@
 # Artifact list cap
 
-Artifact list cap stops manifest listing after `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` keys, limiting multi-artifact downloads (`pattern`, `artifact-ids`, or all artifacts) and `merge` while leaving single-artifact download by `name` unaffected.
+Artifact list cap stops manifest listing after `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` non-expired manifests, limiting multi-artifact downloads (`pattern`, `artifact-ids`, or all artifacts) and `merge` while leaving single-artifact download by `name` unaffected.
 
 ## Sub-features
 

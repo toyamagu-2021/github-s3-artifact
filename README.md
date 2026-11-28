@@ -185,12 +185,14 @@ When `retention-days` is set (for example `retention-days: 7`), both blob and ma
 | `access-key-id` | *(AWS env / OIDC)* | Explicit AWS access key ID |
 | `secret-access-key` | *(AWS env / OIDC)* | Explicit AWS secret access key (masked in logs) |
 | `session-token` | *(AWS env / OIDC)* | Explicit AWS session token (masked in logs) |
+| `artifact-url-format` | `$S3_ARTIFACT_URL_FORMAT` (`'s3'`) | `s3` emits `s3://<bucket>/<blobKey>`; `presigned` emits a signed `GetObject` URL |
+| `presign-expires-seconds` | `$S3_ARTIFACT_PRESIGN_EXPIRES_SECONDS` (`'3600'`) | Lifetime of a presigned `artifact-url` in seconds (`1`–`604800`) |
 
 | Output | Description |
 |---|---|
 | `artifact-id` | Unique 53-bit safe integer artifact ID |
 | `artifact-digest` | 64-char hex SHA-256 digest (without `sha256:` prefix) |
-| `artifact-url` | S3 URI (`s3://<bucket>/<blobKey>`) |
+| `artifact-url` | S3 URI (`s3://<bucket>/<blobKey>`) by default, or a presigned `GetObject` URL when `artifact-url-format` is `presigned` |
 
 ### Download (`download/action.yml`)
 
@@ -211,3 +213,35 @@ When `retention-days` is set (for example `retention-days: 7`), both blob and ma
 | Output | Description |
 |---|---|
 | `download-path` | Resolved absolute destination directory path |
+
+### Merge (`merge/action.yml`)
+
+| Input | Default | Description |
+|---|---|---|
+| `name` | `'merged-artifacts'` | Name of the consolidated artifact |
+| `pattern` | `'*'` | Minimatch glob pattern matching artifact names in the current workflow run |
+| `separate-directories` | `'false'` | Extract each matched artifact into `<name>/` before re-archiving (`true`) or combine at archive root (`false`) |
+| `retention-days` | *(unset)* | Retention days for the merged artifact; capped by `GITHUB_RETENTION_DAYS` |
+| `compression-level` | `'6'` | Zlib level `0`–`9` |
+| `delete-merged` | `'false'` | Delete source manifests first and blobs best-effort after the merged artifact commits |
+| `include-hidden-files` | `'false'` | Include dotfiles and dot-directories in the merged archive |
+| `artifact-url-format`, `presign-expires-seconds` | *(same env fallbacks as `upload`)* | Presigned `artifact-url` controls |
+| `bucket`, `key-prefix`, `region`, `endpoint`, `force-path-style`, `access-key-id`, `secret-access-key`, `session-token` | *(same env fallbacks as `upload`)* | S3 connection overrides |
+
+| Output | Description |
+|---|---|
+| `artifact-id` | Unique 53-bit safe integer artifact ID for the merged artifact |
+| `artifact-digest` | 64-char hex SHA-256 digest (without `sha256:` prefix) |
+| `artifact-url` | S3 URI (`s3://<bucket>/<blobKey>`) by default, or a presigned `GetObject` URL when `artifact-url-format` is `presigned` |
+
+## Runtime Tuning Environment Variables
+
+Compatible with `@actions/artifact` transfer tuning variables:
+
+| Environment Variable | Default | Behavior |
+|---|---|---|
+| `ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY` | `5` | Multipart S3 upload queue concurrency (capped at `32` for `<=4` CPUs, otherwise `min(16 * cpus, 300)`) |
+| `ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS` | `300000` | Aborts an upload when progress stalls for this duration in milliseconds |
+| `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT` | `1000` | Maximum non-expired artifacts returned by multi-artifact `download` and `merge` listings (emits a warning when truncated) |
+
+Blob downloads automatically retry transient stream failures up to 5 attempts with a 5-second backoff and a 30-second per-chunk inactivity timeout.

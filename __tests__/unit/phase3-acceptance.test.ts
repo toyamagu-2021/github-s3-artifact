@@ -70,7 +70,7 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
     store = new InMemoryArtifactStore(
       parseBucketName('ac-bucket'),
       'ci',
-      () => nowMs
+      {now: () => nowMs}
     )
   })
 
@@ -432,6 +432,28 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
     })
     expect(await fs.readFile(path.join(oneMatchDir, 'f1.txt'), 'utf8')).toBe('one')
     await expect(fs.access(path.join(oneMatchDir, 'build-one'))).rejects.toThrow()
+
+    const zeroMatchDir = path.join(workspace, 'zero-pattern-out')
+    const zeroMatch = await runActionBoundary({
+      cwd: workspace,
+      env: baseEnv(),
+      inputs: {pattern: 'does-not-match-*', path: zeroMatchDir},
+      run: () => runDownloadAction({createStore: () => store})
+    })
+    expect(zeroMatch.exitCode).toBe(0)
+    expect(zeroMatch.outputs['download-path']).toBe(zeroMatchDir)
+    expect((await fs.stat(zeroMatchDir)).isDirectory()).toBe(true)
+
+    const existingFile = path.join(workspace, 'already-a-file.txt')
+    await fs.writeFile(existingFile, 'preserve-me')
+    const zeroOnFile = await runActionBoundary({
+      cwd: workspace,
+      env: baseEnv(),
+      inputs: {pattern: 'does-not-match-*', path: existingFile},
+      run: () => runDownloadAction({createStore: () => store})
+    })
+    expect(zeroOnFile.exitCode).toBe(0)
+    expect(await fs.readFile(existingFile, 'utf8')).toBe('preserve-me')
   })
 
   it('AC-11 & AC-12: downloads by artifact-ids with warnings/mutual exclusion and supports cross-repo/cross-run', async () => {
@@ -579,13 +601,15 @@ describe('Acceptance Criteria AC-01..AC-19', () => {
     await expect(fs.access(path.join(workspace, 'escape.txt'))).rejects.toThrow()
 
     await fs.writeFile(path.join(workspace, 'good.txt'), 'ok')
-    const badName = await runActionBoundary({
-      cwd: workspace,
-      env: baseEnv(),
-      inputs: {name: 'bad/name', path: 'good.txt'},
-      run: () => runUploadAction({createStore: () => store, now: () => nowMs})
-    })
-    expect(badName.exitCode).toBe(1)
+    for (const invalidName of ['bad/name', '..', '.']) {
+      const badName = await runActionBoundary({
+        cwd: workspace,
+        env: baseEnv(),
+        inputs: {name: invalidName, path: 'good.txt'},
+        run: () => runUploadAction({createStore: () => store, now: () => nowMs})
+      })
+      expect(badName.exitCode).toBe(1)
+    }
   })
 
   it('AC-17 & AC-18: masks secret inputs, records retentionDays/expiresAt, and hides expired artifacts', async () => {
