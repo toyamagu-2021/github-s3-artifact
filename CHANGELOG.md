@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.1.4](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.3...v0.1.4) - 2026-11-28
+
+### Other Changes
+- docs(terraform): add an AWS sample stack for the artifact bucket and OIDC role by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/23
+- ci(terraform): validate the AWS sample on every pull request by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/24
+- ci(aws): add an opt-in OIDC end-to-end job against real S3 by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/26
+- fix(terraform): drop OIDC trust conditions STS does not map by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/29
+
 ## [v0.1.3](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.2...v0.1.3) - 2026-11-28
 
 ### Fixes
