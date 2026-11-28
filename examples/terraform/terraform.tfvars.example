@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars (gitignored) and replace every REPLACE-ME value.
+# aws_region has no default in the module. This repo's sample target is Tokyo.
+
+aws_region                 = "ap-northeast-1"
+bucket_name                = "REPLACE-ME-github-s3-artifact"
+key_prefix                 = "github-actions"
+github_repository          = "toyamagu-2021/github-s3-artifact"
+github_repository_id       = "1472027889"
+github_owner_id            = "83329336"
+oidc_use_immutable_subject = true
+github_environment         = "aws-e2e"
+allowed_ref                = "refs/heads/main"
+workflow_file              = ".github/workflows/aws-e2e.yml"
+
+# Leave create_oidc_provider false when `aws iam list-open-id-connect-providers`
+# already shows token.actions.githubusercontent.com. Paste that ARN below.
+# If the list is empty, set create_oidc_provider = true and existing_oidc_provider_arn = "".
+create_oidc_provider       = false
+existing_oidc_provider_arn = "arn:aws:iam::REPLACE-ME:oidc-provider/token.actions.githubusercontent.com"
+
+expiration_days    = 14
+retention_tag_days = [7]
+enable_versioning  = false
+force_destroy      = false
+
+# Turn on after the first successful e2e, with a real email. $5 is the recommended cap.
+enable_budget = false
+budget_usd    = 5
+budget_email  = ""
