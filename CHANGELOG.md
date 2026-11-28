@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.3...v0.1.4) (2026-11-28)
+
+
+### Bug Fixes
+
+* **terraform:** drop OIDC trust conditions STS does not map ([#29](https://github.com/toyamagu-2021/github-s3-artifact/issues/29)) ([8e65ed2](https://github.com/toyamagu-2021/github-s3-artifact/commit/8e65ed21ae6f6dbae46b428eb54fa6d1d2182541))
+
 ## [v0.1.3](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.2...v0.1.3) - 2026-11-28
 
 ### Fixes

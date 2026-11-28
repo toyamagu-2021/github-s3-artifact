@@ -1,6 +1,6 @@
 {
   "name": "s3-artifact",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Drop-in S3-compatible backend for actions/upload-artifact, actions/upload-artifact/merge, and actions/download-artifact",
   "private": true,
   "type": "module",
