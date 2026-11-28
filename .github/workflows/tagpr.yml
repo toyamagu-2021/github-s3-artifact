@@ -39,3 +39,9 @@ jobs:
           git tag -f "${MAJOR_TAG}" "${RELEASE_TAG}^{commit}"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin "refs/tags/${MAJOR_TAG}" --force
+      - name: Rewrite the published release notes
+        if: always() && steps.tagpr.outputs.tag != '' && startsWith(steps.tagpr.outputs.tag, 'v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.tagpr.outputs.tag }}
+        run: node --experimental-strip-types scripts/release-notes.ts
