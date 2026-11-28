@@ -10,6 +10,8 @@ github_owner_id            = "83329336"
 oidc_use_immutable_subject = true
 github_environment         = "aws-e2e"
 allowed_ref                = "refs/heads/main"
+# Exact ref for the release-please branch. A pull_request ref does not match.
+extra_allowed_refs = ["refs/heads/release-please--branches--main--components--s3-artifact"]
 # Not a trust condition. Leave it so older tfvars files stay valid.
 workflow_file = ".github/workflows/aws-e2e.yml"
 

@@ -64,7 +64,7 @@ data "aws_iam_policy_document" "trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:ref"
-      values   = [var.allowed_ref]
+      values   = concat([var.allowed_ref], var.extra_allowed_refs)
     }
 
     condition {

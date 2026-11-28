@@ -43,6 +43,12 @@ variable "allowed_ref" {
   description = "Full git ref required in the token."
 }
 
+variable "extra_allowed_refs" {
+  type        = list(string)
+  description = "Additional exact refs that may assume the role, such as the release-please branch."
+  default     = []
+}
+
 variable "workflow_file" {
   type        = string
   description = "Accepted so existing tfvars keep applying. Not a trust condition: STS does not map workflow_ref, and job_workflow_ref is only present for reusable-workflow jobs."

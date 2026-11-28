@@ -6,9 +6,16 @@ name: AWS e2e
 
 on:
   workflow_dispatch:
-  # Uncomment only after a dispatch from main has succeeded.
-  # The trust policy does not filter event_name. A push to main can assume
-  # the role because ref is refs/heads/main and the job uses environment aws-e2e.
+  # release-please pushes this branch to open or update a release PR.
+  # The run is attached to that commit, so it shows on the release PR.
+  # The OIDC ref is refs/heads/<this branch>, which extra_allowed_refs must
+  # list. A pull_request run would present refs/pull/<n>/merge and be denied.
+  push:
+    branches:
+      - release-please--branches--main--components--s3-artifact
+  # A push to main can assume the role too: ref is refs/heads/main and the
+  # job uses environment aws-e2e. Left commented so ordinary main pushes
+  # do not call AWS.
   # push:
   #   branches: [main]
 

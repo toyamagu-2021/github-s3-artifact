@@ -25,6 +25,7 @@ module "github_oidc_role" {
   oidc_use_immutable_subject = var.oidc_use_immutable_subject
   github_environment         = var.github_environment
   allowed_ref                = var.allowed_ref
+  extra_allowed_refs         = var.extra_allowed_refs
   workflow_file              = var.workflow_file
   create_oidc_provider       = var.create_oidc_provider
   existing_oidc_provider_arn = var.existing_oidc_provider_arn
