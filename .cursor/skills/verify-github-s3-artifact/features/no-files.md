@@ -20,8 +20,8 @@ Preconditions:
 - Doctor prints `doctor ok` for this state.
 
 - **Warn.** Run `node .cursor/skills/verify-github-s3-artifact/scripts/verify.mjs drive no-files`. The warn invocation uses `INPUT_NAME=missing-warn`, `INPUT_PATH=missing-warn/**`, and `INPUT_IF-NO-FILES-FOUND=warn`. Exit code is `0`. Stdout contains `::warning::` and `No files were found with the provided path: missing-warn/**. No artifacts will be uploaded.` `GITHUB_OUTPUT` is empty. The manifest key for `missing-warn` is absent.
-- **Error.** The same drive uses `missing-error` and `if-no-files-found: error`. Exit code is `1`. Stdout contains `::error::` and the same no-files sentence. The manifest key is absent.
-- **Ignore.** The same drive uses `missing-ignore` and `if-no-files-found: ignore`. Exit code is `0`. Stdout contains the no-files sentence and does not contain `::warning::` for it. The manifest key is absent.
+- **Error.** The same drive uses `missing-error` and `if-no-files-found: error`. Exit code is `1`. Stdout contains `::error::` and `No files were found with the provided path: missing-error/**. No artifacts will be uploaded.` The manifest key is absent.
+- **Ignore.** The same drive uses `missing-ignore` and `if-no-files-found: ignore`. Exit code is `0`. Stdout contains `No files were found with the provided path: missing-ignore/**. No artifacts will be uploaded.` and does not contain `::warning::` for it. The manifest key is absent.
 
 ## Gotchas
 
