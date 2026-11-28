@@ -1,11 +1,11 @@
 # Merge artifacts
 
-Merge artifacts downloads two artifacts from the same run, stores one new zip, deletes the source manifests, and returns `artifact-id`, `artifact-digest`, and `artifact-url`.
+Merge artifacts downloads two artifacts from the same run, stores one new zip, deletes each source manifest and then its blob, and returns `artifact-id`, `artifact-digest`, and `artifact-url`.
 
 ## Sub-features
 
 - `merge-two-files` stores `left.txt` and `right.txt` in one zip.
-- `delete-merged` removes the source manifest objects after the merged manifest exists.
+- `delete-merged` removes each source manifest after the merged manifest exists, then deletes that source blob best-effort.
 
 ## How to get to it (user POV)
 
@@ -29,6 +29,6 @@ Preconditions:
 ## Gotchas
 
 - `pattern` matches artifact names in the current run, not file paths.
-- `delete-merged` removes the manifest first. A reader that lists manifests no longer sees the source after that delete.
+- `delete-merged` removes the manifest first, then deletes the source blob best-effort. A reader that lists manifests no longer sees the source after the manifest delete. A blob delete that fails does not fail the step.
 - A single-file upload stores the basename. The merged zip contains `left.txt`, not `merge-src/left.txt`.
 - Run this drive once per launch. `merged-sides` stays reserved on that run id (the source manifests `side-left` and `side-right` are deleted by `delete-merged: true`).
