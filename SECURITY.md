@@ -28,5 +28,9 @@ opened by Dependabot.
 
 `.github/workflows/aws-e2e.yml` is opt-in (`AWS_E2E_ENABLED`), assumes a role
 with GitHub OIDC, and is not a required status check. It does not run on
-pull requests. Presigned URLs for its test objects remain in the Actions UI
-for five minutes.
+pull requests. A pull request token still cannot assume the role: `ref` must
+be `refs/heads/main`, `sub` must end in `:environment:aws-e2e`, and the
+GitHub Environment deployment branch policy allows only `main`. AWS STS does
+not map `workflow_ref` or `event_name`, so the trust policy does not use
+them. Presigned URLs for its test objects remain in the Actions UI for five
+minutes.

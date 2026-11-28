@@ -145,21 +145,22 @@ gh variable set AWS_E2E_ENABLED --body "true"
 
 Leave `aws-e2e` off the branch ruleset. The required checks stay `verify`, `minio-docker-integration`, and `actions-e2e`. Fork pull requests cannot obtain an OIDC token, so a required AWS check would block them.
 
-Dispatch **AWS e2e** once from `main` after `.github/workflows/aws-e2e.yml` is on `main`. The `push` trigger in that file stays commented. The trust policy already allows `push`, so uncommenting it later does not need another apply. Uncomment it only after a dispatch succeeds.
+Dispatch **AWS e2e** once from `main` after `.github/workflows/aws-e2e.yml` is on `main` and this stack has been applied. The `push` trigger in that file stays commented. Uncomment it only after a dispatch succeeds. A later push to `main` can assume the role without another apply, because the trust policy does not filter `event_name`.
 
 ## Trust policy
+
+STS maps these GitHub claims to condition keys: `actor`, `actor_id`, `job_workflow_ref`, `repository`, `repository_id`, `repository_owner_id`, `workflow`, `ref`, `environment`, `enterprise_id`, plus `aud` and `sub`. It does not map `workflow_ref` or `event_name`. A `StringEquals` on an unmapped key never matches, so the role cannot be assumed. `job_workflow_ref` is mapped, but [GitHub's OIDC docs](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-with-reusable-workflows) include that claim only when the job is part of a reusable workflow. The jobs in `aws-e2e.yml` are inline, so the sample does not condition on it.
 
 The role assumes only when all of these match:
 
 - `aud` is `sts.amazonaws.com`
-- `repository` / `repository_id` are this repo
+- `repository` is `toyamagu-2021/github-s3-artifact` and `repository_id` is `1472027889`
+- `repository_owner_id` is `83329336` when `github_owner_id` is set (it is in the example tfvars)
 - `ref` is `refs/heads/main`
-- `workflow_ref` is `toyamagu-2021/github-s3-artifact/.github/workflows/aws-e2e.yml@refs/heads/main`
 - `environment` is `aws-e2e`
 - `sub` is `repo:toyamagu-2021@83329336/github-s3-artifact@1472027889:environment:aws-e2e`
-- `event_name` is `push` or `workflow_dispatch`
 
-`pull_request` and `pull_request_target` are not in that allow-list. A job that sets `environment:` replaces the branch form of `sub` with the environment form, so `sub` alone does not reject a pull request. `ref`, `workflow_ref`, and `event_name` do: a pull request token has `ref` `refs/pull/<n>/merge`.
+A pull request still cannot assume the role. Its `ref` is `refs/pull/<n>/merge`, not `refs/heads/main`. `sub` requires `:environment:aws-e2e`, and the GitHub Environment deployment branch policy allows only `main`. The workflow file has no `pull_request` trigger. After any change to this policy, run `terraform apply` before dispatching again.
 
 ## Identity policy
 

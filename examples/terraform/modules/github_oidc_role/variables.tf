@@ -45,7 +45,7 @@ variable "allowed_ref" {
 
 variable "workflow_file" {
   type        = string
-  description = "Workflow path relative to the repository root."
+  description = "Accepted so existing tfvars keep applying. Not a trust condition: STS does not map workflow_ref, and job_workflow_ref is only present for reusable-workflow jobs."
 }
 
 variable "create_oidc_provider" {

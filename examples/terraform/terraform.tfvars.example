@@ -10,7 +10,8 @@ github_owner_id            = "83329336"
 oidc_use_immutable_subject = true
 github_environment         = "aws-e2e"
 allowed_ref                = "refs/heads/main"
-workflow_file              = ".github/workflows/aws-e2e.yml"
+# Not a trust condition. Leave it so older tfvars files stay valid.
+workflow_file = ".github/workflows/aws-e2e.yml"
 
 # Leave create_oidc_provider false when `aws iam list-open-id-connect-providers`
 # already shows token.actions.githubusercontent.com. Paste that ARN below.

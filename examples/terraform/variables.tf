@@ -85,7 +85,7 @@ variable "allowed_ref" {
 
 variable "workflow_file" {
   type        = string
-  description = "Workflow path pinned in the workflow_ref claim, relative to the repository root."
+  description = "Kept so existing tfvars files still apply. Not sent to AWS. STS does not map workflow_ref, and GitHub puts job_workflow_ref only on reusable-workflow jobs."
   default     = ".github/workflows/aws-e2e.yml"
 
   validation {
