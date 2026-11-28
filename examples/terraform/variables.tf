@@ -83,6 +83,17 @@ variable "allowed_ref" {
   }
 }
 
+variable "extra_allowed_refs" {
+  type        = list(string)
+  description = "Additional exact refs that may assume the role. Use the release-please branch so its push can run AWS e2e. pull_request refs (refs/pull/<n>/merge) do not match."
+  default     = []
+
+  validation {
+    condition     = alltrue([for ref in var.extra_allowed_refs : startswith(ref, "refs/")])
+    error_message = "each extra_allowed_refs entry must be a full git ref."
+  }
+}
+
 variable "workflow_file" {
   type        = string
   description = "Kept so existing tfvars files still apply. Not sent to AWS. STS does not map workflow_ref, and GitHub puts job_workflow_ref only on reusable-workflow jobs."

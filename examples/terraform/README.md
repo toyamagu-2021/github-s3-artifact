@@ -145,7 +145,9 @@ gh variable set AWS_E2E_ENABLED --body "true"
 
 Leave `aws-e2e` off the branch ruleset. The required checks stay `verify`, `minio-docker-integration`, and `actions-e2e`. Fork pull requests cannot obtain an OIDC token, so a required AWS check would block them.
 
-Dispatch **AWS e2e** once from `main` after `.github/workflows/aws-e2e.yml` is on `main` and this stack has been applied. The `push` trigger in that file stays commented. Uncomment it only after a dispatch succeeds. A later push to `main` can assume the role without another apply, because the trust policy does not filter `event_name`.
+Dispatch **AWS e2e** once from `main` after `.github/workflows/aws-e2e.yml` is on `main` and this stack has been applied. A push to `main` can assume the role, but that trigger stays commented so ordinary main pushes do not call AWS.
+
+The workflow also runs on a push to `release-please--branches--main--components--s3-artifact`. release-please uses that branch for the release pull request, and the check is attached to the release commit. Add that branch to the `aws-e2e` deployment branch policy, and set `extra_allowed_refs` to `refs/heads/release-please--branches--main--components--s3-artifact`.
 
 ## Trust policy
 
@@ -156,11 +158,11 @@ The role assumes only when all of these match:
 - `aud` is `sts.amazonaws.com`
 - `repository` is `toyamagu-2021/github-s3-artifact` and `repository_id` is `1472027889`
 - `repository_owner_id` is `83329336` when `github_owner_id` is set (it is in the example tfvars)
-- `ref` is `refs/heads/main`
+- `ref` is `refs/heads/main`, or an entry in `extra_allowed_refs`
 - `environment` is `aws-e2e`
 - `sub` is `repo:toyamagu-2021@83329336/github-s3-artifact@1472027889:environment:aws-e2e`
 
-A pull request still cannot assume the role. Its `ref` is `refs/pull/<n>/merge`, not `refs/heads/main`. `sub` requires `:environment:aws-e2e`, and the GitHub Environment deployment branch policy allows only `main`. The workflow file has no `pull_request` trigger. After any change to this policy, run `terraform apply` before dispatching again.
+A pull request still cannot assume the role. Its `ref` is `refs/pull/<n>/merge`, which is not an allowed ref. The release-please branch is allowed because release-please pushes the branch itself, and that push's `ref` is `refs/heads/release-please--branches--main--components--s3-artifact`. The GitHub Environment must list both `main` and that branch. After any change to this policy, run `terraform apply` before the next run.
 
 ## Identity policy
 
