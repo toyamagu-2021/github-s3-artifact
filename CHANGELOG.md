@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.1.3](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.2...v0.1.3) - 2026-11-28
+
+### Fixes
+- fix(storage,download): filter expired manifests in listManifests and create empty download-path by @toyamagu-2021 in https://github.com/toyamagu-2021/github-s3-artifact/pull/21
+
 ## [v0.1.2](https://github.com/toyamagu-2021/github-s3-artifact/compare/v0.1.1...v0.1.2) - 2026-11-27
 
 ### Features
