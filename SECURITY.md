@@ -23,3 +23,10 @@ public disclosure.
 
 This project uses npm packages and GitHub Actions. Dependency updates are
 opened by Dependabot.
+
+## AWS end-to-end workflow
+
+`.github/workflows/aws-e2e.yml` is opt-in (`AWS_E2E_ENABLED`), assumes a role
+with GitHub OIDC, and is not a required status check. It does not run on
+pull requests. Presigned URLs for its test objects remain in the Actions UI
+for five minutes.

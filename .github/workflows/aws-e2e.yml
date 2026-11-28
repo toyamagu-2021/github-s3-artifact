@@ -1,0 +1,218 @@
+# Opt-in check against real AWS. Not a required status check: fork pull
+# requests cannot obtain an OIDC token, and this file does not run on
+# pull_request or pull_request_target. Apply examples/terraform, create
+# Environment aws-e2e, then set repository variable AWS_E2E_ENABLED=true.
+name: AWS e2e
+
+on:
+  workflow_dispatch:
+  # Uncomment only after a dispatch from main has succeeded.
+  # The trust policy already allows event_name push.
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-e2e
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ vars.AWS_E2E_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: aws-e2e
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      S3_ARTIFACT_BUCKET: ${{ vars.S3_ARTIFACT_BUCKET }}
+      S3_ARTIFACT_KEY_PREFIX: ${{ vars.S3_ARTIFACT_KEY_PREFIX }}
+      S3_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-s3-artifact-${{ github.run_id }}-build
+          role-duration-seconds: 900
+      - name: Create fixture files
+        run: |
+          mkdir -p fixtures/pkg-a/dist fixtures/pkg-b/dist
+          echo "alpha" > fixtures/pkg-a/dist/a.txt
+          echo "beta" > fixtures/pkg-b/dist/b.txt
+      - id: up_a
+        uses: ./upload
+        with:
+          name: pkg-a
+          path: fixtures/pkg-a/dist/**
+          retention-days: '7'
+          if-no-files-found: error
+      - id: up_b
+        uses: ./upload
+        with:
+          name: pkg-b
+          path: fixtures/pkg-b/dist/**
+          retention-days: '7'
+          if-no-files-found: error
+      - name: Check upload outputs
+        env:
+          URL_A: ${{ steps.up_a.outputs.artifact-url }}
+          URL_B: ${{ steps.up_b.outputs.artifact-url }}
+          DIGEST_A: ${{ steps.up_a.outputs.artifact-digest }}
+          DIGEST_B: ${{ steps.up_b.outputs.artifact-digest }}
+        run: |
+          python3 - << 'PY'
+          import os, sys
+          bucket = os.environ["S3_ARTIFACT_BUCKET"]
+          prefix = os.environ["S3_ARTIFACT_KEY_PREFIX"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          run = os.environ["GITHUB_RUN_ID"]
+          expected = f"s3://{bucket}/{prefix}/{repo}/runs/{run}/blobs/"
+          for name in ("URL_A", "URL_B"):
+              url = os.environ[name]
+              if not url.startswith(expected):
+                  sys.exit(f"{name} is not an s3 uri under this run prefix")
+          for name in ("DIGEST_A", "DIGEST_B"):
+              digest = os.environ[name]
+              if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                  sys.exit(f"{name} is not 64 hex chars")
+          print("upload outputs ok")
+          PY
+      - id: dup
+        continue-on-error: true
+        uses: ./upload
+        with:
+          name: pkg-a
+          path: fixtures/pkg-a/dist/a.txt
+          retention-days: '7'
+          if-no-files-found: error
+      - name: Assert duplicate name was rejected
+        run: |
+          if [ "${{ steps.dup.outcome }}" != "failure" ]; then
+            echo "duplicate upload must fail" >&2
+            exit 1
+          fi
+          echo "duplicate name rejected"
+
+  verify:
+    needs: build
+    if: ${{ vars.AWS_E2E_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: aws-e2e
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      S3_ARTIFACT_BUCKET: ${{ vars.S3_ARTIFACT_BUCKET }}
+      S3_ARTIFACT_KEY_PREFIX: ${{ vars.S3_ARTIFACT_KEY_PREFIX }}
+      S3_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-s3-artifact-${{ github.run_id }}-verify
+          role-duration-seconds: 900
+      - uses: ./download
+        with:
+          name: pkg-a
+          path: out/pkg-a
+      - uses: ./download
+        with:
+          name: pkg-b
+          path: out/pkg-b
+      - name: Verify downloaded content
+        run: |
+          test "$(cat out/pkg-a/a.txt)" = "alpha"
+          test "$(cat out/pkg-b/b.txt)" = "beta"
+
+  merge:
+    needs: verify
+    if: ${{ vars.AWS_E2E_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: aws-e2e
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      S3_ARTIFACT_BUCKET: ${{ vars.S3_ARTIFACT_BUCKET }}
+      S3_ARTIFACT_KEY_PREFIX: ${{ vars.S3_ARTIFACT_KEY_PREFIX }}
+      S3_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-s3-artifact-${{ github.run_id }}-merge
+          role-duration-seconds: 900
+      - id: merged
+        uses: ./merge
+        with:
+          name: merged-multi
+          pattern: 'pkg-*'
+          separate-directories: 'false'
+          delete-merged: 'true'
+          retention-days: '7'
+          artifact-url-format: presigned
+          presign-expires-seconds: '300'
+      - name: Fetch presigned object and verify digest
+        env:
+          PRESIGNED_URL: ${{ steps.merged.outputs.artifact-url }}
+          DIGEST: ${{ steps.merged.outputs.artifact-digest }}
+        run: |
+          python3 - << 'PY'
+          import os, sys
+          url = os.environ["PRESIGNED_URL"]
+          digest = os.environ["DIGEST"]
+          if not (
+              url.startswith("https://")
+              and "X-Amz-Algorithm=AWS4-HMAC-SHA256" in url
+              and "X-Amz-Signature=" in url
+          ):
+              sys.exit("presigned artifact-url has an unexpected shape")
+          if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+              sys.exit("artifact-digest is not 64 hex chars")
+          print("presigned artifact-url shape ok")
+          PY
+          curl --fail --silent --show-error --output merged-presigned.zip -- "$PRESIGNED_URL"
+          echo "$DIGEST  merged-presigned.zip" | sha256sum -c -
+      - uses: ./download
+        with:
+          name: merged-multi
+          path: out/merged
+      - name: Verify merged content
+        run: |
+          test "$(cat out/merged/a.txt)" = "alpha"
+          test "$(cat out/merged/b.txt)" = "beta"
+
+  cleanup:
+    needs: [build, verify, merge]
+    if: ${{ always() && vars.AWS_E2E_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: aws-e2e
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      S3_ARTIFACT_BUCKET: ${{ vars.S3_ARTIFACT_BUCKET }}
+      S3_ARTIFACT_KEY_PREFIX: ${{ vars.S3_ARTIFACT_KEY_PREFIX }}
+      S3_ARTIFACT_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-s3-artifact-${{ github.run_id }}-cleanup
+          role-duration-seconds: 900
+      - name: Delete this run prefix
+        run: |
+          aws s3 rm "s3://${S3_ARTIFACT_BUCKET}/${S3_ARTIFACT_KEY_PREFIX}/${GITHUB_REPOSITORY}/runs/${GITHUB_RUN_ID}/" --recursive
