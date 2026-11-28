@@ -3,8 +3,9 @@ import {Readable} from 'node:stream'
 import * as os from 'node:os'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {ArtifactNotFoundError} from '../../src/shared/errors.js'
+import {ArtifactNotFoundError, DigestMismatchError} from '../../src/shared/errors.js'
 import {
+  isRetryableBlobError,
   withBlobReadRetry,
   watchUploadStall,
   withChunkInactivityTimeout
@@ -152,6 +153,8 @@ describe('artifact runtime tuning', () => {
         }
       )
     ).rejects.toThrow('missing')
+
+    expect(isRetryableBlobError(new DigestMismatchError(['art']))).toBe(false)
   })
 
   it('returns only the first N live manifests when the list cap is set', async () => {

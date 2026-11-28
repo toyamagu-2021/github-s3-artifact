@@ -25,12 +25,30 @@ import {S3ArtifactStore} from '../../src/storage/s3-store.js'
 import type {S3Client} from '@aws-sdk/client-s3'
 
 describe('domain types and boundary validation', () => {
-  it('validates artifact names against NTFS and path separators (AC-16)', () => {
-    expect(() => validateArtifactName('')).toThrow()
-    for (const bad of ['a/b', 'a\\b', 'a:b', 'a*b', 'a?b', 'a"b', 'a<b', 'a>b', 'a|b', 'a\rb', 'a\nb']) {
+  it('validates artifact names against NTFS, dot segments, whitespace, and path separators (AC-16)', () => {
+    for (const bad of [
+      '',
+      '   ',
+      '.',
+      '..',
+      ' . ',
+      ' .. ',
+      'a/b',
+      'a\\b',
+      'a:b',
+      'a*b',
+      'a?b',
+      'a"b',
+      'a<b',
+      'a>b',
+      'a|b',
+      'a\rb',
+      'a\nb'
+    ]) {
       expect(() => validateArtifactName(bad)).toThrow()
     }
     expect(parseArtifactName('build-linux-x64')).toBe('build-linux-x64')
+    expect(parseArtifactName('v1..2')).toBe('v1..2')
     expect(parseArtifactName('m¥ñðrmål')).toBe('m¥ñðrmål')
   })
 
@@ -447,6 +465,49 @@ describe('key layout and InMemoryArtifactStore', () => {
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toContain('Artifact list exceeded the limit of 1')
     expect(getCalls).not.toContain('owner/repo/runs/101/manifests/e-live.json')
+
+    const probeWarnings: string[] = []
+    const probeObjects: Record<string, string> = {
+      'owner/repo/runs/101/manifests/a-live.json': makeManifestJson('10', 'a-live'),
+      'owner/repo/runs/101/manifests/b-live.json': makeManifestJson('11', 'b-live'),
+      'owner/repo/runs/101/manifests/c-corrupt.json': '{corrupt-json'
+    }
+    const probeClient = {
+      send: async (cmd: {constructor: {name: string}; input: Record<string, unknown>}) => {
+        if (cmd.constructor.name === 'ListObjectsV2Command') {
+          return {
+            Contents: Object.keys(probeObjects)
+              .sort()
+              .map(Key => ({Key})),
+            IsTruncated: false
+          }
+        }
+        if (cmd.constructor.name === 'GetObjectCommand') {
+          const raw = probeObjects[String(cmd.input.Key)]
+          return {Body: {transformToString: () => Promise.resolve(raw ?? '')}}
+        }
+        throw new Error('Unexpected command')
+      }
+    } as unknown as S3Client
+
+    const probeStore = new S3ArtifactStore(
+      {
+        bucket: parseBucketName('b'),
+        keyPrefix: '',
+        region: 'us-east-1',
+        forcePathStyle: true
+      },
+      {
+        client: probeClient,
+        warn: msg => probeWarnings.push(msg),
+        now: () => now,
+        env: {ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: '2'}
+      }
+    )
+    const probeListed = await probeStore.listManifests(scope)
+    expect(probeListed.map(m => m.name)).toEqual(['a-live', 'b-live'])
+    expect(probeWarnings).toHaveLength(1)
+    expect(probeWarnings[0]).toContain('Artifact list exceeded the limit of 2')
   })
 
   it('deletes manifest object before blob object in S3ArtifactStore.deleteArtifact and tolerates blob delete errors', async () => {
