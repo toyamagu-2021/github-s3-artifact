@@ -7,7 +7,8 @@ name: AWS e2e
 on:
   workflow_dispatch:
   # Uncomment only after a dispatch from main has succeeded.
-  # The trust policy already allows event_name push.
+  # The trust policy does not filter event_name. A push to main can assume
+  # the role because ref is refs/heads/main and the job uses environment aws-e2e.
   # push:
   #   branches: [main]
 

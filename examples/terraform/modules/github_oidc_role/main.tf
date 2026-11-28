@@ -4,7 +4,6 @@ locals {
   role_name      = var.role_name != "" ? var.role_name : "github-s3-artifact-${local.owner}-${local.repo}"
   subject_prefix = var.oidc_use_immutable_subject ? "repo:${local.owner}@${var.github_owner_id}/${local.repo}@${var.github_repository_id}" : "repo:${local.owner}/${local.repo}"
   sub            = "${local.subject_prefix}:environment:${var.github_environment}"
-  workflow_ref   = "${var.github_repository}/${var.workflow_file}@${var.allowed_ref}"
   # AWS no longer validates these thumbprints for token.actions.githubusercontent.com,
   # and the CreateOpenIDConnectProvider API still rejects an empty list.
   github_thumbprints = [
@@ -51,16 +50,21 @@ data "aws_iam_policy_document" "trust" {
       values   = [var.github_repository_id]
     }
 
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:ref"
-      values   = [var.allowed_ref]
+    # STS maps repository_owner_id. Skip the key when the id is unset so a
+    # classic (non-immutable) subject can still assume the role.
+    dynamic "condition" {
+      for_each = var.github_owner_id != "" ? [var.github_owner_id] : []
+      content {
+        test     = "StringEquals"
+        variable = "token.actions.githubusercontent.com:repository_owner_id"
+        values   = [condition.value]
+      }
     }
 
     condition {
       test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:workflow_ref"
-      values   = [local.workflow_ref]
+      variable = "token.actions.githubusercontent.com:ref"
+      values   = [var.allowed_ref]
     }
 
     condition {
@@ -75,13 +79,11 @@ data "aws_iam_policy_document" "trust" {
       values   = [local.sub]
     }
 
-    # Allow-list. pull_request and pull_request_target do not match.
-    # push is included so uncommenting that trigger later does not need another apply.
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:event_name"
-      values   = ["push", "workflow_dispatch"]
-    }
+    # Do not add token.actions.githubusercontent.com:workflow_ref or :event_name.
+    # STS does not map those claims, so StringEquals never matches and AssumeRole
+    # is always denied. job_workflow_ref is mapped, but GitHub includes it only
+    # for reusable-workflow jobs. These jobs are inline, so that key is omitted.
+    # var.workflow_file stays in the module so existing tfvars still apply.
   }
 }
 
@@ -155,6 +157,11 @@ resource "aws_iam_role" "this" {
     precondition {
       condition     = length(local.role_name) <= 64 && can(regex("^[A-Za-z0-9+=,.@_-]+$", local.role_name))
       error_message = "role_name must be a valid IAM role name of at most 64 characters."
+    }
+
+    precondition {
+      condition     = length(var.workflow_file) > 0
+      error_message = "workflow_file must stay non-empty so existing tfvars apply. It is not a trust-policy condition."
     }
   }
 }

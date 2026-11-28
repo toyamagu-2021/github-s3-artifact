@@ -78,7 +78,7 @@ Apply [`examples/terraform`](examples/terraform/README.md) in the account that w
 
 The example region is `ap-northeast-1`. `aws_region` has no default in the module. Encryption is SSE-S3 (`AES256`), not KMS. A monthly cost budget is optional and off by default; the runbook recommends `$5` once the stack is up. A required reviewer on the GitHub Environment is optional and, on a solo account, only confirms the dispatch.
 
-Pin `aws-actions/configure-aws-credentials` to a commit. The role session must be at least as long as `presign-expires-seconds`. A presigned URL dies when the session dies. Repositories created after 15 July 2026, including this one, use immutable OIDC subjects (`repo:OWNER@OWNER_ID/REPO@REPO_ID:...`). Read `sub_claim_prefix` from the repository OIDC customization API before writing the trust policy.
+Pin `aws-actions/configure-aws-credentials` to a commit. The role session must be at least as long as `presign-expires-seconds`. A presigned URL dies when the session dies. Repositories created after 15 July 2026, including this one, use immutable OIDC subjects (`repo:OWNER@OWNER_ID/REPO@REPO_ID:...`). Read `sub_claim_prefix` from the repository OIDC customization API before writing the trust policy. AWS STS only maps a subset of GitHub claims. The sample does not condition on `workflow_ref` or `event_name`, because those keys never match. A pull request is rejected by `ref` (`refs/heads/main`), `sub` (`:environment:aws-e2e`), and the environment branch policy.
 
 Do not add a bucket policy that requires the `s3:x-amz-server-side-encryption` request header. This action does not send one. Bucket default encryption still applies.
 
