@@ -12,7 +12,7 @@
 | **互換スコープ** | ① コア互換一式（複数 `path`/glob、`if-no-files-found`、`compression-level`、`overwrite`、`include-hidden-files`、`pattern`、`merge-multiple`、`digest-mismatch`、Windows ドライブルート LCA / `~\` 展開）<br>② 単一ファイル無圧縮転送・未展開取得（`archive: false`, `skip-decompress: true`）<br>③ 別Run・別リポジトリ・ID指定取得（`run-id`, `repository`, `artifact-ids`）<br>④ 同一Run内アーティファクト統合サブアクション `merge`（`separate-directories`, `delete-merged` 対応、`v0.1.2` で追加）<br>⑤ `@actions/artifact` ランタイム制御環境変数（`ACTIONS_ARTIFACT_UPLOAD_CONCURRENCY`, `ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS`, `ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT`）およびダウンロードリトライ制御 |
 | **`retention-days` の扱い** | Manifest JSON の `expiresAt` に記録（取得・一覧時に期限切れを除外）しつつ、Blob と Manifest の双方に S3 Object Tag（`s3-artifact-retention-days=<N>`）を付与する。物理削除はバケット側の S3 Lifecycle ルールに委譲し、`s3:PutObjectTagging` 権限不足やタグ非対応のS3互換ストアでは `warning` を出してアップロード自体は継続する。 |
 | **`artifact-url` の扱い** | デフォルトは `s3://<bucket>/<blobKey>` 形式の URI を出力する。`artifact-url-format: presigned`（または `S3_ARTIFACT_URL_FORMAT=presigned`）指定時のみ、`presign-expires-seconds`（`1`〜`604800` 秒、デフォルト `3600`）の署名付き `GetObject` URL を出力する。 |
-| **実装・配布・リリース** | TypeScript（Action 実行ランタイムは `node24`、開発環境互換のため `esbuild` バンドルターゲットは `node22` / `engines: >=22` + AWS SDK v3）で `dist/` をリポジトリにコミットし、初期リリースは `v0` 系（`0.0.0` 起点）から開始して `tagpr` でリリース作成およびメジャー浮動タグ（`v0`、将来 `v1` 以降も追従）の自動更新を行う。 |
+| **実装・配布・リリース** | TypeScript（Action 実行ランタイムは `node24`、開発環境互換のため `esbuild` バンドルターゲットは `node22` / `engines: >=22` + AWS SDK v3）で `dist/` をリポジトリにコミットし、初期リリースは `v0` 系（`0.0.0` 起点）から開始し、`release-please` が conventional commits から CHANGELOG と GitHub リリースを同じ文章で作り、メジャー浮動タグ（`v0`、将来 `v1` 以降も追従）を更新する。 |
 
 ---
 
@@ -244,10 +244,9 @@ export interface ArtifactStore {
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml              # lint / typecheck / 3OS unit / dist差分検査 / MinIO E2E
-│   │   └── tagpr.yml           # tagpr リリース自動化 + メジャータグ v0 / v1+ 更新
+│   │   └── release-please.yml  # release-please + メジャータグ v0 / v1+ 更新
 │   ├── dependabot.yml          # npm / GitHub Actions 週次更新設定
-│   ├── release.yml             # リリースノート自動分類設定
-│   └── tagpr                   # tagpr 設定ファイル
+│   └── release.yml             # 旧 GitHub 自動リリースノートの分類設定
 ├── package.json
 ├── tsconfig.json
 └── README.md
