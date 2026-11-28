@@ -24,11 +24,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
         with:
           role-to-assume: arn:aws:iam::123456789012:role/github-actions-artifacts
-          aws-region: us-east-1
+          aws-region: ap-northeast-1
 
       - run: npm ci && npm run build
 
@@ -45,10 +45,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5 # v6.3.1
         with:
           role-to-assume: arn:aws:iam::123456789012:role/github-actions-artifacts
-          aws-region: us-east-1
+          aws-region: ap-northeast-1
 
       - uses: toyamagu-2021/github-s3-artifact/download@v0
         with:
@@ -72,35 +72,57 @@ s3://<bucket>/<key-prefix>/
 - **Crash safety**: Blob streams are uploaded first; the manifest JSON is written last with conditional `If-None-Match: *` (`overwrite: false`, same `runAttempt`) or `If-Match: <etag>` (`overwrite: true` or re-run with higher `runAttempt`). Incomplete uploads never surface to `download`.
 - **Re-run failed jobs**: Attempt 2 can re-upload its own artifact with `overwrite: false` while attempt 1 artifacts remain readable under the same `<run_id>`.
 
+## Using with AWS
+
+Apply [`examples/terraform`](examples/terraform/README.md) in the account that will store artifacts. The sample creates the bucket and the OIDC role. It does not run from GitHub Actions: the first apply uses credentials you already have, because the role does not exist yet.
+
+The example region is `ap-northeast-1`. `aws_region` has no default in the module. Encryption is SSE-S3 (`AES256`), not KMS. A monthly cost budget is optional and off by default; the runbook recommends `$5` once the stack is up. A required reviewer on the GitHub Environment is optional and, on a solo account, only confirms the dispatch.
+
+Pin `aws-actions/configure-aws-credentials` to a commit. The role session must be at least as long as `presign-expires-seconds`. A presigned URL dies when the session dies. Repositories created after 15 July 2026, including this one, use immutable OIDC subjects (`repo:OWNER@OWNER_ID/REPO@REPO_ID:...`). Read `sub_claim_prefix` from the repository OIDC customization API before writing the trust policy.
+
+Do not add a bucket policy that requires the `s3:x-amz-server-side-encryption` request header. This action does not send one. Bucket default encryption still applies.
+
 ## AWS OIDC Minimal IAM Policy
 
-Attach the following policy to the IAM role assumed by `aws-actions/configure-aws-credentials`. Omit `s3:PutObjectTagging` if you manage retention purely by key prefix (the action emits a warning and proceeds if tagging is denied or unsupported).
+Attach the following policy to the IAM role assumed by `aws-actions/configure-aws-credentials`. It is the policy `examples/terraform` creates. Scope the ARNs to `<key-prefix>/<owner>/<repo>/`, not the whole bucket. Blob upload uses multipart, so `s3:PutObject` covers `CreateMultipartUpload`, `UploadPart`, and `CompleteMultipartUpload`, and `s3:AbortMultipartUpload` covers the failure path (`leavePartsOnError: false`).
+
+`s3:PutObject` is allowed only when the object has no tags or the only tag key is `s3-artifact-retention-days`. An unconditional `s3:PutObject` statement would bypass that limit. Omit `s3:PutObjectTagging` only if you accept the action's warning and a retry without the retention tag.
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ListRunManifests",
+      "Sid": "ListRepoManifests",
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
       "Resource": "arn:aws:s3:::my-org-ci-artifacts",
       "Condition": {
         "StringLike": {
-          "s3:prefix": ["github-actions/*"]
+          "s3:prefix": ["github-actions/my-org/my-repo/*"]
         }
       }
     },
     {
-      "Sid": "ReadWriteArtifacts",
+      "Sid": "ReadDeleteAndAbort",
       "Effect": "Allow",
       "Action": [
         "s3:GetObject",
-        "s3:PutObject",
         "s3:DeleteObject",
-        "s3:PutObjectTagging"
+        "s3:AbortMultipartUpload"
       ],
-      "Resource": "arn:aws:s3:::my-org-ci-artifacts/github-actions/*"
+      "Resource": "arn:aws:s3:::my-org-ci-artifacts/github-actions/my-org/my-repo/*"
+    },
+    {
+      "Sid": "WriteWithRetentionTagOnly",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:PutObjectTagging"],
+      "Resource": "arn:aws:s3:::my-org-ci-artifacts/github-actions/my-org/my-repo/*",
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "s3:RequestObjectTagKeys": ["s3-artifact-retention-days"]
+        }
+      }
     }
   ]
 }

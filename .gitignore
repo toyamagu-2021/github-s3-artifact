@@ -5,3 +5,15 @@ todo.md
 .DS_Store
 *.log
 .cursor/skills/verify-github-s3-artifact/evidence/runs/
+
+examples/terraform/.terraform/
+examples/terraform/*.tfstate
+examples/terraform/*.tfstate.*
+examples/terraform/*.tfvars
+!examples/terraform/*.tfvars.example
+examples/terraform/backend.s3.hcl
+!examples/terraform/backend.s3.hcl.example
+examples/terraform/crash.log
+examples/terraform/override.tf
+examples/terraform/override.tf.json
+examples/terraform/*_override.tf
