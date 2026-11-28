@@ -67,6 +67,26 @@ describe('release notes', () => {
     expect(notes).not.toContain('src/storage/')
   })
 
+  it('drops HTML comments without leaving the comment markers in the notes', () => {
+    const pull = {
+      number: 30,
+      title: 'docs: explain merge',
+      body: ['<!-- generated -->', '## What changed', '- Document the merge sub-action.'].join(
+        '\n'
+      ),
+      mergedAt: '2026-11-28T05:00:00Z'
+    }
+    const notes = buildReleaseNotes({
+      repository,
+      tag: 'v0.1.4',
+      previousTag: 'v0.1.3',
+      pulls: [pull]
+    })
+    expect(notes).toContain('Document the merge sub-action.')
+    expect(notes).not.toContain('<!--')
+    expect(notes).not.toContain('generated')
+  })
+
   it('does not build a body when the range has no pull requests', () => {
     const older = {
       number: 18,

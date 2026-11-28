@@ -4,8 +4,6 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {pathToFileURL} from 'node:url'
 
-const COMMENT = /<!--[\s\S]*?-->/g
-
 export interface ReleasePull {
   number: number
   title: string
@@ -22,6 +20,32 @@ export function isReleasePull(pull: {title?: string}): boolean {
   return /^release for v\d/i.test((pull.title || '').trim())
 }
 
+function stripHtmlComments(body: string): string {
+  const kept: string[] = []
+  let skipping = false
+  for (const line of body.split(/\r?\n/)) {
+    if (skipping) {
+      if (line.includes('-->')) skipping = false
+      continue
+    }
+    const start = line.indexOf('<!--')
+    if (start < 0) {
+      kept.push(line)
+      continue
+    }
+    const end = line.indexOf('-->', start + 4)
+    if (end < 0) {
+      skipping = true
+      const before = line.slice(0, start).trim()
+      if (before) kept.push(before)
+      continue
+    }
+    const combined = `${line.slice(0, start)}${line.slice(end + 3)}`.trim()
+    if (combined) kept.push(combined)
+  }
+  return kept.join('\n').trim()
+}
+
 function extractSection(body: string, heading: RegExp): string {
   const lines = body.split(/\r?\n/)
   const start = lines.findIndex(line => heading.test(line.trim()))
@@ -35,7 +59,7 @@ function extractSection(body: string, heading: RegExp): string {
 }
 
 export function userFacingLines(pull: {title?: string; body?: string}): string[] {
-  const body = (pull.body || '').replace(COMMENT, '').trim()
+  const body = stripHtmlComments(pull.body || '')
   const section =
     extractSection(body, /^##\s+what changed\b/i) ||
     extractSection(body, /^##\s+why\b/i) ||
