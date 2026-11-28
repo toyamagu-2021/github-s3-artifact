@@ -2559,7 +2559,7 @@ var sleep;
 var init_sleep = __esm({
   "node_modules/@smithy/core/dist-es/submodules/client/util-waiter/utils/sleep.js"() {
     sleep = (seconds) => {
-      return new Promise((resolve2) => setTimeout(resolve2, seconds * 1e3));
+      return new Promise((resolve3) => setTimeout(resolve3, seconds * 1e3));
     };
   }
 });
@@ -2724,8 +2724,8 @@ var init_createWaiter = __esm({
     init_waiter();
     abortTimeout = (abortSignal) => {
       let onAbort;
-      const promise = new Promise((resolve2) => {
-        onAbort = () => resolve2({ state: WaiterState.ABORTED });
+      const promise = new Promise((resolve3) => {
+        onAbort = () => resolve3({ state: WaiterState.ABORTED });
         if (typeof abortSignal.addEventListener === "function") {
           abortSignal.addEventListener("abort", onAbort);
         } else {
@@ -4595,7 +4595,7 @@ var init_getInstanceMetadataRegion = __esm({
     };
     imdsRequest = async (options2) => {
       const { request } = await import("node:http");
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         const req = request({
           hostname: options2.hostname,
           port: options2.port,
@@ -4623,7 +4623,7 @@ var init_getInstanceMetadataRegion = __esm({
           const chunks = [];
           res.on("data", (chunk) => chunks.push(chunk));
           res.on("end", () => {
-            resolve2(Buffer.concat(chunks));
+            resolve3(Buffer.concat(chunks));
             req.destroy();
           });
         });
@@ -6863,7 +6863,7 @@ var init_headStream = __esm({
       if (isReadableStream(stream)) {
         return headStream(stream, bytes);
       }
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         const collector = new Collector();
         collector.limit = bytes;
         stream.pipe(collector);
@@ -6874,7 +6874,7 @@ var init_headStream = __esm({
         collector.on("error", reject);
         collector.on("finish", function() {
           const bytes2 = concatBytes(this.buffers);
-          resolve2(bytes2);
+          resolve3(bytes2);
         });
       });
     };
@@ -7026,7 +7026,7 @@ var init_stream_collector = __esm({
       if (isReadableStream(stream)) {
         return collectReadableStream(stream);
       }
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         const collector = new Collector2();
         const nodeStream = stream;
         nodeStream.pipe(collector);
@@ -7037,7 +7037,7 @@ var init_stream_collector = __esm({
         collector.on("error", reject);
         collector.on("finish", function() {
           const bytes = concatBytes(this.bufferedBytes);
-          resolve2(bytes);
+          resolve3(bytes);
         });
       });
     };
@@ -7572,7 +7572,7 @@ var init_fileStreamHasher = __esm({
   "node_modules/@smithy/core/dist-es/submodules/checksum/hash-stream-node/fileStreamHasher.js"() {
     import_node_fs2 = require("node:fs");
     init_HashCalculator();
-    fileStreamHasher = (hashCtor, fileStream) => new Promise((resolve2, reject) => {
+    fileStreamHasher = (hashCtor, fileStream) => new Promise((resolve3, reject) => {
       if (!isReadStream(fileStream)) {
         reject(new Error("Unable to calculate hash for non-file streams."));
         return;
@@ -7590,7 +7590,7 @@ var init_fileStreamHasher = __esm({
       });
       hashCalculator.on("error", reject);
       hashCalculator.on("finish", function() {
-        hash.digest().then(resolve2).catch(reject);
+        hash.digest().then(resolve3).catch(reject);
       });
     });
     isReadStream = (stream) => typeof stream.path === "string";
@@ -7609,14 +7609,14 @@ var init_readableStreamHasher = __esm({
       const hash = new hashCtor();
       const hashCalculator = new HashCalculator(hash);
       readableStream.pipe(hashCalculator);
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         readableStream.on("error", (err) => {
           hashCalculator.end();
           reject(err);
         });
         hashCalculator.on("error", reject);
         hashCalculator.on("finish", () => {
-          hash.digest().then(resolve2).catch(reject);
+          hash.digest().then(resolve3).catch(reject);
         });
       });
     };
@@ -8875,7 +8875,7 @@ async function* readableToIterable(readStream) {
     streamEnded = true;
   });
   while (!generationEnded) {
-    const value = await new Promise((resolve2) => setTimeout(() => resolve2(records.shift()), 0));
+    const value = await new Promise((resolve3) => setTimeout(() => resolve3(records.shift()), 0));
     if (value) {
       yield value;
     }
@@ -13755,7 +13755,7 @@ function bindRetryMiddleware(isStreamingPayload2) {
           const delay = retryToken.getRetryDelay();
           totalRetryDelay += (retryToken?.$retryLog?.acquisitionDelay ?? 0) + delay;
           if (delay > 0) {
-            await race(new Promise((resolve2) => setTimeout(resolve2, delay)), abortSignal);
+            await race(new Promise((resolve3) => setTimeout(resolve3, delay)), abortSignal);
           }
         }
       }
@@ -13888,7 +13888,7 @@ var init_DefaultRateLimiter = __esm({
         this.refillTokenBucket();
         while (amount > this.availableTokens) {
           const delay = (amount - this.availableTokens) / this.fillRate * 1e3;
-          await new Promise((resolve2) => _DefaultRateLimiter.setTimeoutFn(resolve2, delay));
+          await new Promise((resolve3) => _DefaultRateLimiter.setTimeoutFn(resolve3, delay));
           this.refillTokenBucket();
         }
         this.availableTokens = this.availableTokens - amount;
@@ -14326,7 +14326,7 @@ var init_StandardRetryStrategy2 = __esm({
               const delayFromResponse = getDelayFromRetryAfterHeader(err.$response);
               const delay = Math.max(delayFromResponse || 0, delayFromDecider);
               totalDelay += delay;
-              await new Promise((resolve2) => setTimeout(resolve2, delay));
+              await new Promise((resolve3) => setTimeout(resolve3, delay));
               continue;
             }
             if (!err.$metadata) {
@@ -22096,7 +22096,7 @@ var require_dist_cjs6 = __commonJS({
     var DEFAULT_MAX_RETRIES = 0;
     var providerConfigFromInit = ({ maxRetries = DEFAULT_MAX_RETRIES, timeout = DEFAULT_TIMEOUT }) => ({ maxRetries, timeout });
     function httpRequest(options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         const req = node_http.request({
           method: "GET",
           ...options2,
@@ -22121,7 +22121,7 @@ var require_dist_cjs6 = __commonJS({
             chunks.push(chunk);
           });
           res.on("end", () => {
-            resolve2(Buffer.concat(chunks));
+            resolve3(Buffer.concat(chunks));
             req.destroy();
           });
         });
@@ -22584,21 +22584,21 @@ var require_dist_cjs7 = __commonJS({
       let sendBody = true;
       if (!externalAgent && expect === "100-continue") {
         sendBody = await Promise.race([
-          new Promise((resolve2) => {
-            timeoutId = Number(timing.setTimeout(() => resolve2(true), Math.max(MIN_WAIT_TIME, maxContinueTimeoutMs)));
+          new Promise((resolve3) => {
+            timeoutId = Number(timing.setTimeout(() => resolve3(true), Math.max(MIN_WAIT_TIME, maxContinueTimeoutMs)));
           }),
-          new Promise((resolve2) => {
+          new Promise((resolve3) => {
             httpRequest.on("continue", () => {
               timing.clearTimeout(timeoutId);
-              resolve2(true);
+              resolve3(true);
             });
             httpRequest.on("response", () => {
               timing.clearTimeout(timeoutId);
-              resolve2(false);
+              resolve3(false);
             });
             httpRequest.on("error", () => {
               timing.clearTimeout(timeoutId);
-              resolve2(false);
+              resolve3(false);
             });
           })
         ]);
@@ -22675,13 +22675,13 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return socketWarningTimestamp;
       }
       constructor(options2) {
-        this.configProvider = new Promise((resolve2, reject) => {
+        this.configProvider = new Promise((resolve3, reject) => {
           if (typeof options2 === "function") {
             options2().then((_options) => {
-              resolve2(this.resolveDefaultConfig(_options));
+              resolve3(this.resolveDefaultConfig(_options));
             }).catch(reject);
           } else {
-            resolve2(this.resolveDefaultConfig(options2));
+            resolve3(this.resolveDefaultConfig(options2));
           }
         });
       }
@@ -22711,7 +22711,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
             timing.clearTimeout(requestTimeoutId);
             timing.clearTimeout(keepAliveTimeoutId);
           };
-          const resolve2 = async (arg) => {
+          const resolve3 = async (arg) => {
             await writeRequestBodyPromise;
             clearTimeouts();
             _resolve(arg);
@@ -22775,7 +22775,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               headers: getTransformedHeaders(res.headers),
               body: res
             });
-            resolve2({ response: httpResponse });
+            resolve3({ response: httpResponse });
           });
           req.on("error", (err) => {
             if (NODEJS_TIMEOUT_ERROR_CODES2.includes(err.code)) {
@@ -23114,13 +23114,13 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return new _NodeHttp2Handler(instanceOrOptions);
       }
       constructor(options2) {
-        this.configProvider = new Promise((resolve2, reject) => {
+        this.configProvider = new Promise((resolve3, reject) => {
           if (typeof options2 === "function") {
             options2().then((opts) => {
-              resolve2(opts || {});
+              resolve3(opts || {});
             }).catch(reject);
           } else {
-            resolve2(options2 || {});
+            resolve3(options2 || {});
           }
         });
       }
@@ -23147,7 +23147,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return new Promise((_resolve, _reject) => {
           let fulfilled = false;
           let writeRequestBodyPromise = void 0;
-          const resolve2 = async (arg) => {
+          const resolve3 = async (arg) => {
             await writeRequestBodyPromise;
             _resolve(arg);
           };
@@ -23244,7 +23244,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               body: clientHttp2Stream
             });
             fulfilled = true;
-            resolve2({ response: httpResponse });
+            resolve3({ response: httpResponse });
             if (useIsolatedSession) {
               session.close();
               clientHttp2Stream.on("end", () => {
@@ -23382,7 +23382,7 @@ var require_dist_cjs8 = __commonJS({
           try {
             return await toRetry();
           } catch (e5) {
-            await new Promise((resolve2) => setTimeout(resolve2, delayMs));
+            await new Promise((resolve3) => setTimeout(resolve3, delayMs));
           }
         }
         return await toRetry();
@@ -23396,12 +23396,12 @@ var require_dist_cjs8 = __commonJS({
     var fromHttp = (options2 = {}) => {
       options2.logger?.debug("@aws-sdk/credential-provider-http - fromHttp");
       let host;
-      const relative2 = options2.awsContainerCredentialsRelativeUri ?? process.env[AWS_CONTAINER_CREDENTIALS_RELATIVE_URI];
+      const relative3 = options2.awsContainerCredentialsRelativeUri ?? process.env[AWS_CONTAINER_CREDENTIALS_RELATIVE_URI];
       const full = options2.awsContainerCredentialsFullUri ?? process.env[AWS_CONTAINER_CREDENTIALS_FULL_URI];
       const token = options2.awsContainerAuthorizationToken ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN];
       const tokenFile = options2.awsContainerAuthorizationTokenFile ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE];
       const warn = options2.logger?.constructor?.name === "NoOpLogger" || !options2.logger?.warn ? console.warn : options2.logger.warn.bind(options2.logger);
-      if (relative2 && full) {
+      if (relative3 && full) {
         warn("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri.");
         warn("awsContainerCredentialsRelativeUri will take precedence.");
       }
@@ -23409,8 +23409,8 @@ var require_dist_cjs8 = __commonJS({
         warn("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile.");
         warn("awsContainerAuthorizationTokenFile will take precedence.");
       }
-      if (relative2) {
-        host = `${DEFAULT_LINK_LOCAL_HOST}${relative2}`;
+      if (relative3) {
+        host = `${DEFAULT_LINK_LOCAL_HOST}${relative3}`;
       } else if (full) {
         host = full;
       } else {
@@ -27800,7 +27800,7 @@ var require_dist_cjs11 = __commonJS({
     var { createHash: createHash8, createPrivateKey, createPublicKey, sign: sign4 } = require("node:crypto");
     var { promises: promises3 } = require("node:fs");
     var { homedir: homedir3 } = require("node:os");
-    var { dirname: dirname2, join: join7 } = require("node:path");
+    var { dirname: dirname2, join: join6 } = require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -27966,10 +27966,10 @@ var require_dist_cjs11 = __commonJS({
         await promises3.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join7(homedir3(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join6(homedir3(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash8("sha256").update(loginSessionBytes).digest("hex");
-        return join7(directory, `${loginSessionSha256}.json`);
+        return join6(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -39776,7 +39776,7 @@ to input.params.ContentLength in bytes.
         }
       }
       async __abortTimeout(abortSignal) {
-        return new Promise((resolve2, reject) => {
+        return new Promise((resolve3, reject) => {
           abortSignal.onabort = () => {
             const abortError = new Error("Upload aborted.");
             abortError.name = "AbortError";
@@ -40451,34 +40451,34 @@ var require_yauzl = __commonJS({
     exports2.LocalFileHeader = LocalFileHeader;
     exports2.RandomAccessReader = RandomAccessReader;
     function openPromise(path5, options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         open2(path5, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
-          resolve2(zipfile);
+          resolve3(zipfile);
         });
       });
     }
     function fromFdPromise(fd, options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         fromFd(fd, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
-          resolve2(zipfile);
+          resolve3(zipfile);
         });
       });
     }
     function fromBufferPromise(buffer, options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         fromBuffer(buffer, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
-          resolve2(zipfile);
+          resolve3(zipfile);
         });
       });
     }
     function fromRandomAccessReaderPromise(reader, totalSize, options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         fromRandomAccessReader(reader, totalSize, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
-          resolve2(zipfile);
+          resolve3(zipfile);
         });
       });
     }
@@ -40762,15 +40762,15 @@ var require_yauzl = __commonJS({
         if (self.autoClose) self.close();
       }
       function onEntry(entry) {
-        let { resolve: resolve2 } = pendingResolveReject;
+        let { resolve: resolve3 } = pendingResolveReject;
         pendingResolveReject = null;
-        resolve2({ value: entry });
+        resolve3({ value: entry });
       }
       function onEnd() {
-        let { resolve: resolve2 } = pendingResolveReject;
+        let { resolve: resolve3 } = pendingResolveReject;
         pendingResolveReject = null;
         cleanup();
-        resolve2({ done: true });
+        resolve3({ done: true });
       }
       function onError(err) {
         let { reject } = pendingResolveReject;
@@ -40783,9 +40783,9 @@ var require_yauzl = __commonJS({
           return this;
         },
         next() {
-          const promise = new Promise((resolve2, reject) => {
+          const promise = new Promise((resolve3, reject) => {
             if (pendingResolveReject != null) throw new Error("next() called before previous Promise was resolved.");
-            pendingResolveReject = { resolve: resolve2, reject };
+            pendingResolveReject = { resolve: resolve3, reject };
           });
           self.readEntry();
           return promise;
@@ -40974,26 +40974,26 @@ var require_yauzl = __commonJS({
       });
     };
     ZipFile.prototype.openReadStreamPromise = function(entry, options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         this.openReadStream(entry, options2, function(err, readStream) {
           if (err) return reject(err);
-          resolve2(readStream);
+          resolve3(readStream);
         });
       });
     };
     ZipFile.prototype.openReadStreamLowLevelPromise = function(fileDataStart, compressedSize, relativeStart, relativeEnd, decompress, uncompressedSize) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         this.openReadStream(fileDataStart, compressedSize, relativeStart, relativeEnd, decompress, uncompressedSize, function(err, readStream) {
           if (err) return reject(err);
-          resolve2(readStream);
+          resolve3(readStream);
         });
       });
     };
     ZipFile.prototype.readLocalFileHeaderPromise = function(entry, options2) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         this.readLocalFileHeader(entry, options2, function(err, localFileHeader) {
           if (err) return reject(err);
-          resolve2(localFileHeader);
+          resolve3(localFileHeader);
         });
       });
     };
@@ -41388,11 +41388,11 @@ var import_os = require("os");
 var import_fs = require("fs");
 var __awaiter = function(thisArg, _arguments, P, generator) {
   function adopt(value) {
-    return value instanceof P ? value : new P(function(resolve2) {
-      resolve2(value);
+    return value instanceof P ? value : new P(function(resolve3) {
+      resolve3(value);
     });
   }
-  return new (P || (P = Promise))(function(resolve2, reject) {
+  return new (P || (P = Promise))(function(resolve3, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -41408,7 +41408,7 @@ var __awaiter = function(thisArg, _arguments, P, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve2(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve3(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -41786,6 +41786,7 @@ var ZipSlipError = class extends Error {
 };
 
 // src/shared/validation.ts
+var path = __toESM(require("node:path"), 1);
 var INVALID_ARCHIVE_PATH_CHARS = [
   ['"', 'Double quote "'],
   [":", "Colon :"],
@@ -41803,9 +41804,15 @@ var INVALID_ARTIFACT_NAME_CHARS = [
   ["/", "Forward slash /"]
 ];
 function validateArtifactName(name) {
-  if (!name) {
+  const trimmed = name.trim();
+  if (!trimmed) {
     throw new ArtifactValidationError(
       "Provided artifact name input during validation is empty"
+    );
+  }
+  if (trimmed === "." || trimmed === "..") {
+    throw new ArtifactValidationError(
+      `Invalid artifact name '${name}': relative path segments '.' and '..' are not allowed.`
     );
   }
   for (const [char, label] of INVALID_ARTIFACT_NAME_CHARS) {
@@ -41815,6 +41822,18 @@ function validateArtifactName(name) {
       );
     }
   }
+}
+function resolveSafeArtifactSubdir(baseDir, artifactName) {
+  validateArtifactName(artifactName);
+  const resolvedBase = path.resolve(baseDir);
+  const targetDir = path.resolve(resolvedBase, artifactName);
+  const rel = path.relative(resolvedBase, targetDir);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new ArtifactValidationError(
+      `Invalid artifact name '${artifactName}': resolves outside destination directory.`
+    );
+  }
+  return targetDir;
 }
 
 // src/shared/types.ts
@@ -42030,12 +42049,12 @@ var DOWNLOAD_MAX_ATTEMPTS = 5;
 var DOWNLOAD_RETRY_BACKOFF_MS = 5e3;
 var DOWNLOAD_CHUNK_TIMEOUT_MS = 30 * 1e3;
 function defaultSleep(ms) {
-  return new Promise((resolve2) => {
-    setTimeout(resolve2, ms);
+  return new Promise((resolve3) => {
+    setTimeout(resolve3, ms);
   });
 }
 function isRetryableBlobError(error3) {
-  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError);
+  return !(error3 instanceof ZipSlipError || error3 instanceof ArtifactValidationError || error3 instanceof ArtifactNotFoundError || error3 instanceof DigestMismatchError);
 }
 function withChunkInactivityTimeout(source, timeoutMs) {
   const pass2 = new import_node_stream13.Transform({
@@ -42073,7 +42092,7 @@ function withChunkInactivityTimeout(source, timeoutMs) {
 function watchUploadStall(opts) {
   const now = opts.now ?? (() => Date.now());
   const pollMs = Math.max(1, Math.min(opts.timeoutMs, 5e3));
-  return new Promise((resolve2, reject) => {
+  return new Promise((resolve3, reject) => {
     const timer = setInterval(() => {
       if (now() - opts.lastProgressMs() >= opts.timeoutMs) {
         clearInterval(timer);
@@ -42082,7 +42101,7 @@ function watchUploadStall(opts) {
     }, pollMs);
     const onAbort = () => {
       clearInterval(timer);
-      resolve2();
+      resolve3();
     };
     if (opts.signal.aborted) {
       onAbort();
@@ -42586,10 +42605,11 @@ var S3ArtifactStore = class {
         })
       );
       const pageKeys = (response.Contents ?? []).map((item) => item.Key).filter((key) => Boolean(key && key.endsWith(".json")));
-      for (let i5 = 0; i5 < pageKeys.length; ) {
+      let i5 = 0;
+      while (i5 < pageKeys.length && manifests.length < maxCount) {
         const batchSize = Math.min(
           MANIFEST_READ_CONCURRENCY,
-          maxCount + 1 - manifests.length
+          maxCount - manifests.length
         );
         const batch = pageKeys.slice(i5, i5 + batchSize);
         i5 += batch.length;
@@ -42617,9 +42637,28 @@ var S3ArtifactStore = class {
             manifests.push(manifest);
           }
         }
-        if (manifests.length > maxCount) {
-          hitLimit = true;
-          break;
+      }
+      while (i5 < pageKeys.length && manifests.length >= maxCount) {
+        const probeKey = pageKeys[i5];
+        i5 += 1;
+        try {
+          const res = await this.client.send(
+            new import_client_s3.GetObjectCommand({
+              Bucket: this.config.bucket,
+              Key: probeKey
+            })
+          );
+          const rawJson = await readStreamToUtf8(res.Body);
+          const manifest = parseManifestJson(rawJson);
+          if (!isManifestExpired(manifest, nowMs)) {
+            hitLimit = true;
+            break;
+          }
+        } catch (error3) {
+          if (!isNotFoundError(error3)) {
+            hitLimit = true;
+            break;
+          }
         }
       }
       if (hitLimit) {
@@ -42691,7 +42730,7 @@ var S3ArtifactStore = class {
 
 // src/download/inputs.ts
 var os6 = __toESM(require("node:os"), 1);
-var path = __toESM(require("node:path"), 1);
+var path2 = __toESM(require("node:path"), 1);
 function getOptionalInput(name) {
   const value = getInput(name, { required: false });
   return value === "" ? void 0 : value;
@@ -42703,7 +42742,7 @@ function getBooleanWithDefault(name, defaultValue) {
   }
   return getBooleanInput(name, { required: false });
 }
-function expandDestinationPath(rawPath, env2, pathApi = path) {
+function expandDestinationPath(rawPath, env2, pathApi = path2) {
   const target = rawPath || env2.GITHUB_WORKSPACE || process.cwd();
   if (target === "~" || target.startsWith("~/") || target.startsWith("~\\")) {
     const home = env2.HOME || env2.USERPROFILE || os6.homedir();
@@ -44146,11 +44185,11 @@ var cachedMinimatch = (pattern, options2) => {
   return mm;
 };
 var defaultPlatform = typeof process === "object" && process ? process.env?.__MINIMATCH_TESTING_PLATFORM__ || process.platform : "posix";
-var path2 = {
+var path3 = {
   win32: { sep: "\\" },
   posix: { sep: "/" }
 };
-var sep2 = defaultPlatform === "win32" ? path2.win32.sep : path2.posix.sep;
+var sep2 = defaultPlatform === "win32" ? path3.win32.sep : path3.posix.sep;
 minimatch.sep = sep2;
 var GLOBSTAR = /* @__PURE__ */ Symbol("globstar **");
 minimatch.GLOBSTAR = GLOBSTAR;
@@ -45409,14 +45448,13 @@ minimatch.unescape = unescape;
 
 // src/download/run-download.ts
 var fs4 = __toESM(require("node:fs/promises"), 1);
-var path4 = __toESM(require("node:path"), 1);
 
 // src/core/extract-zip.ts
 var import_node_crypto9 = require("node:crypto");
 var fsSync = __toESM(require("node:fs"), 1);
 var fs3 = __toESM(require("node:fs/promises"), 1);
 var os7 = __toESM(require("node:os"), 1);
-var path3 = __toESM(require("node:path"), 1);
+var path4 = __toESM(require("node:path"), 1);
 var import_promises4 = require("node:stream/promises");
 var import_yauzl = __toESM(require_yauzl(), 1);
 function resolveSafeEntryPath(destinationDir, entryFileName) {
@@ -45428,16 +45466,16 @@ function resolveSafeEntryPath(destinationDir, entryFileName) {
   if (segments.some((seg) => seg === "..")) {
     throw new ZipSlipError(entryFileName);
   }
-  const resolvedDest = path3.resolve(destinationDir);
-  const targetPath = path3.resolve(resolvedDest, normalizedName);
-  const rel = path3.relative(resolvedDest, targetPath);
-  if (rel.startsWith("..") || path3.isAbsolute(rel)) {
+  const resolvedDest = path4.resolve(destinationDir);
+  const targetPath = path4.resolve(resolvedDest, normalizedName);
+  const rel = path4.relative(resolvedDest, targetPath);
+  if (rel.startsWith("..") || path4.isAbsolute(rel)) {
     throw new ZipSlipError(entryFileName);
   }
   return targetPath;
 }
 function makeTempFilePath(dir, prefix2) {
-  return path3.join(
+  return path4.join(
     dir,
     `${prefix2}-${process.pid}-${Date.now()}-${(0, import_node_crypto9.randomBytes)(6).toString("hex")}`
   );
@@ -45448,9 +45486,9 @@ async function spoolStreamToFileWithDigest(stream, targetFilePath) {
   return hasher.result().digest;
 }
 async function extractZipFile(zipFilePath, destinationDir) {
-  const resolvedDest = path3.resolve(destinationDir);
+  const resolvedDest = path4.resolve(destinationDir);
   await fs3.mkdir(resolvedDest, { recursive: true });
-  const zipFile = await new Promise((resolve2, reject) => {
+  const zipFile = await new Promise((resolve3, reject) => {
     import_yauzl.default.open(
       zipFilePath,
       { lazyEntries: true, decodeStrings: true },
@@ -45463,12 +45501,12 @@ async function extractZipFile(zipFilePath, destinationDir) {
           reject(err ?? new Error("Failed to open zip archive"));
           return;
         }
-        resolve2(file);
+        resolve3(file);
       }
     );
   });
   try {
-    await new Promise((resolve2, reject) => {
+    await new Promise((resolve3, reject) => {
       let settled = false;
       const fail = (err) => {
         if (settled) {
@@ -45486,7 +45524,7 @@ async function extractZipFile(zipFilePath, destinationDir) {
       zipFile.on("end", () => {
         if (!settled) {
           settled = true;
-          resolve2();
+          resolve3();
         }
       });
       zipFile.on("entry", (entry) => {
@@ -45497,7 +45535,7 @@ async function extractZipFile(zipFilePath, destinationDir) {
             zipFile.readEntry();
             return;
           }
-          await fs3.mkdir(path3.dirname(targetPath), { recursive: true });
+          await fs3.mkdir(path4.dirname(targetPath), { recursive: true });
           const entryStream = await new Promise(
             (resStream, rejStream) => {
               zipFile.openReadStream(entry, (openErr, readStream) => {
@@ -45512,7 +45550,7 @@ async function extractZipFile(zipFilePath, destinationDir) {
             }
           );
           const stagePath = makeTempFilePath(
-            path3.dirname(targetPath),
+            path4.dirname(targetPath),
             ".s3-artifact-entry"
           );
           try {
@@ -45532,10 +45570,10 @@ async function extractZipFile(zipFilePath, destinationDir) {
   }
 }
 async function verifyDigestAndMaterialize(opts) {
-  const resolvedDest = path3.resolve(opts.destinationDir);
+  const resolvedDest = path4.resolve(opts.destinationDir);
   await fs3.mkdir(resolvedDest, { recursive: true });
   if (!opts.archived || opts.skipDecompress) {
-    const safeFileName = path3.basename(opts.rawFileName);
+    const safeFileName = path4.basename(opts.rawFileName);
     const targetPath = resolveSafeEntryPath(resolvedDest, safeFileName);
     const stagePath = makeTempFilePath(resolvedDest, ".s3-artifact-stage");
     try {
@@ -45618,14 +45656,19 @@ async function runDownload(inputs, deps) {
       targets = allManifests;
     }
   }
-  await fs4.mkdir(inputs.destinationPath, { recursive: true });
+  if (targets.length === 0) {
+    const existing = await fs4.lstat(inputs.destinationPath).catch(() => null);
+    if (!existing) {
+      await fs4.mkdir(inputs.destinationPath, { recursive: true });
+    }
+  }
   const extractDirectly = isSingleNamed || inputs.mergeMultiple || targets.length === 1;
   const digestMismatches = [];
   const abortOnDigestMismatch = inputs.digestMismatch === "error";
   for (const batch of chunkArray(targets, PARALLEL_DOWNLOADS)) {
     const results = await Promise.all(
       batch.map(async (manifest) => {
-        const destDir = extractDirectly ? inputs.destinationPath : path4.join(inputs.destinationPath, manifest.name);
+        const destDir = extractDirectly ? inputs.destinationPath : resolveSafeArtifactSubdir(inputs.destinationPath, manifest.name);
         const materialized = await withBlobReadRetry(
           () => deps.store.openBlobStream(manifest.blobKey),
           (stream) => verifyDigestAndMaterialize({

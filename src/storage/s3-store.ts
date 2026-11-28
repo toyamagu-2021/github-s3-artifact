@@ -391,10 +391,11 @@ export class S3ArtifactStore implements ArtifactStore {
         .map(item => item.Key)
         .filter((key): key is string => Boolean(key && key.endsWith('.json')))
 
-      for (let i = 0; i < pageKeys.length; ) {
+      let i = 0
+      while (i < pageKeys.length && manifests.length < maxCount) {
         const batchSize = Math.min(
           MANIFEST_READ_CONCURRENCY,
-          maxCount + 1 - manifests.length
+          maxCount - manifests.length
         )
         const batch = pageKeys.slice(i, i + batchSize)
         i += batch.length
@@ -423,9 +424,29 @@ export class S3ArtifactStore implements ArtifactStore {
             manifests.push(manifest)
           }
         }
-        if (manifests.length > maxCount) {
-          hitLimit = true
-          break
+      }
+
+      while (i < pageKeys.length && manifests.length >= maxCount) {
+        const probeKey = pageKeys[i]!
+        i += 1
+        try {
+          const res = await this.client.send(
+            new GetObjectCommand({
+              Bucket: this.config.bucket,
+              Key: probeKey
+            })
+          )
+          const rawJson = await readStreamToUtf8(res.Body)
+          const manifest = parseManifestJson(rawJson)
+          if (!isManifestExpired(manifest, nowMs)) {
+            hitLimit = true
+            break
+          }
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            hitLimit = true
+            break
+          }
         }
       }
 

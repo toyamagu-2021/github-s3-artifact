@@ -1,7 +1,6 @@
 import * as core from '@actions/core'
 import {Minimatch} from 'minimatch'
 import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
 import {verifyDigestAndMaterialize} from '../core/extract-zip.js'
 import {withBlobReadRetry} from '../shared/blob-transfer.js'
 import {
@@ -9,6 +8,7 @@ import {
   DigestMismatchError
 } from '../shared/errors.js'
 import type {ArtifactManifestV1} from '../shared/types.js'
+import {resolveSafeArtifactSubdir} from '../shared/validation.js'
 import type {ArtifactStore} from '../storage/store.js'
 import type {DownloadActionInputs} from './inputs.js'
 
@@ -67,7 +67,12 @@ export async function runDownload(
     }
   }
 
-  await fs.mkdir(inputs.destinationPath, {recursive: true})
+  if (targets.length === 0) {
+    const existing = await fs.lstat(inputs.destinationPath).catch(() => null)
+    if (!existing) {
+      await fs.mkdir(inputs.destinationPath, {recursive: true})
+    }
+  }
 
   const extractDirectly =
     isSingleNamed || inputs.mergeMultiple || targets.length === 1
@@ -80,7 +85,7 @@ export async function runDownload(
       batch.map(async manifest => {
         const destDir = extractDirectly
           ? inputs.destinationPath
-          : path.join(inputs.destinationPath, manifest.name)
+          : resolveSafeArtifactSubdir(inputs.destinationPath, manifest.name)
         const materialized = await withBlobReadRetry(
           () => deps.store.openBlobStream(manifest.blobKey),
           stream =>

@@ -53355,9 +53355,15 @@ var INVALID_ARTIFACT_NAME_CHARS = [
   ["/", "Forward slash /"]
 ];
 function validateArtifactName(name) {
-  if (!name) {
+  const trimmed = name.trim();
+  if (!trimmed) {
     throw new ArtifactValidationError(
       "Provided artifact name input during validation is empty"
+    );
+  }
+  if (trimmed === "." || trimmed === "..") {
+    throw new ArtifactValidationError(
+      `Invalid artifact name '${name}': relative path segments '.' and '..' are not allowed.`
     );
   }
   for (const [char, label] of INVALID_ARTIFACT_NAME_CHARS) {
@@ -54077,10 +54083,11 @@ var S3ArtifactStore = class {
         })
       );
       const pageKeys = (response.Contents ?? []).map((item) => item.Key).filter((key) => Boolean(key && key.endsWith(".json")));
-      for (let i5 = 0; i5 < pageKeys.length; ) {
+      let i5 = 0;
+      while (i5 < pageKeys.length && manifests.length < maxCount) {
         const batchSize = Math.min(
           MANIFEST_READ_CONCURRENCY,
-          maxCount + 1 - manifests.length
+          maxCount - manifests.length
         );
         const batch = pageKeys.slice(i5, i5 + batchSize);
         i5 += batch.length;
@@ -54108,9 +54115,28 @@ var S3ArtifactStore = class {
             manifests.push(manifest);
           }
         }
-        if (manifests.length > maxCount) {
-          hitLimit = true;
-          break;
+      }
+      while (i5 < pageKeys.length && manifests.length >= maxCount) {
+        const probeKey = pageKeys[i5];
+        i5 += 1;
+        try {
+          const res = await this.client.send(
+            new import_client_s3.GetObjectCommand({
+              Bucket: this.config.bucket,
+              Key: probeKey
+            })
+          );
+          const rawJson = await readStreamToUtf8(res.Body);
+          const manifest = parseManifestJson(rawJson);
+          if (!isManifestExpired(manifest, nowMs)) {
+            hitLimit = true;
+            break;
+          }
+        } catch (error3) {
+          if (!isNotFoundError(error3)) {
+            hitLimit = true;
+            break;
+          }
         }
       }
       if (hitLimit) {

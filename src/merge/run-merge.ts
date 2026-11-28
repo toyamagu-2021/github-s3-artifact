@@ -7,6 +7,7 @@ import {verifyDigestAndMaterialize} from '../core/extract-zip.js'
 import {withBlobReadRetry} from '../shared/blob-transfer.js'
 import {ArtifactValidationError, DigestMismatchError} from '../shared/errors.js'
 import {type ArtifactManifestV1, parseArtifactName} from '../shared/types.js'
+import {resolveSafeArtifactSubdir} from '../shared/validation.js'
 import type {ArtifactStore} from '../storage/store.js'
 import {runUpload} from '../upload/run-upload.js'
 import type {MergeActionInputs} from './inputs.js'
@@ -110,7 +111,7 @@ async function extractSources(
     const results = await Promise.all(
       batch.map(async artifact => {
         const destinationDir = inputs.separateDirectories
-          ? path.join(tmpDir, artifact.name)
+          ? resolveSafeArtifactSubdir(tmpDir, artifact.name)
           : tmpDir
         const materialized = await withBlobReadRetry(
           () => store.openBlobStream(artifact.blobKey),
